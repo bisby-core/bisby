@@ -5,6 +5,37 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface LoginRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  username: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  password: string;
+}
+
+export type AuthenticatedLocalUserRole = typeof AuthenticatedLocalUserRole[keyof typeof AuthenticatedLocalUserRole];
+
+
+export const AuthenticatedLocalUserRole = {
+  staff: 'staff',
+  client: 'client',
+} as const;
+
+export interface AuthenticatedLocalUser {
+  accountId: string;
+  tenantId: string;
+  role: AuthenticatedLocalUserRole;
+}
+
+export interface AuthLogoutResponse {
+  authenticated: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }

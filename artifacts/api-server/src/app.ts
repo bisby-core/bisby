@@ -13,6 +13,8 @@ import { KnexTenantRegistry } from "./db/master-registry";
 import { createDatabaseRouter } from "./tenancy/database-router";
 import { TenantConnectionManager } from "./tenancy/tenant-connection-manager";
 import healthRouter from "./routes/health";
+import authRouter from "./routes/auth";
+import { createLocalAuthMiddleware } from "./auth/local-auth-middleware";
 
 const app: Express = express();
 const masterDatabase = createMasterDatabase();
@@ -54,7 +56,9 @@ app.use(
     rootDomain: process.env["BISBY_ROOT_DOMAIN"] ?? "bisby.com",
   }),
 );
+app.use("/api", createLocalAuthMiddleware());
 app.use("/api", router);
+app.use("/api", authRouter);
 
 app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err: error, requestId: req.id }, "Unhandled API error");

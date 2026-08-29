@@ -26,6 +26,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in with a tenant-local account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated tenant-local account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedLocalUser"
+        "400":
+          description: Invalid login payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current tenant-local account
+      responses:
+        "200":
+          description: Current authenticated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedLocalUser"
+        "401":
+          description: Authentication is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current tenant-local session
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthLogoutResponse"
   /access/{moduleKey}/{workspaceKey}:
     get:
       operationId: getRouteAccess
@@ -70,6 +130,43 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 components:
   schemas:
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 255
+        password:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+        - username
+        - password
+    AuthenticatedLocalUser:
+      type: object
+      properties:
+        accountId:
+          type: string
+        tenantId:
+          type: string
+        role:
+          type: string
+          enum:
+            - staff
+            - client
+      required:
+        - accountId
+        - tenantId
+        - role
+    AuthLogoutResponse:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+      required:
+        - authenticated
     HealthStatus:
       type: object
       properties:

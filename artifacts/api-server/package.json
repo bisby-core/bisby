@@ -9,6 +9,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "migrate:master": "tsx src/db/migrate.ts master",
     "migrate:tenant": "tsx src/db/migrate.ts tenant",
+    "seed:tenants": "tsx src/db/seed-tenants.ts",
+    "test:auth": "node --import tsx --test src/auth/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

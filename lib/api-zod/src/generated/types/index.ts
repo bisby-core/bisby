@@ -7,7 +7,11 @@
  */
 
 export * from './apiError';
+export * from './authenticatedLocalUser';
+export * from './authenticatedLocalUserRole';
+export * from './authLogoutResponse';
 export * from './healthStatus';
+export * from './loginRequest';
 export * from './moduleKey';
 export * from './routeAccess';
 export * from './workspaceKey';

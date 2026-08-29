@@ -12,6 +12,11 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - Required server env: `PORT`
 - Required global routing database secret: `BISBY_MASTER_DATABASE_URL`
 - Tenant blueprint migration env: `BISBY_TENANT_DATABASE_URL` (when migrating a specific tenant database)
+- Local session secret: `SESSION_SECRET`
+- Initial seed tenant databases: `BISBY_DESIGN_TENANT_DATABASE_URL`, `BISBY_CLIENTALPHA_TENANT_DATABASE_URL`
+- Optional seed password: `BISBY_DEFAULT_ADMIN_PASSWORD` (required in production; development/test default is intentionally `password123`)
+- `pnpm --filter @workspace/api-server run seed:tenants` — migrate and idempotently seed both initial tenants
+- `pnpm --filter @workspace/api-server run test:auth` — run password and signed-session tests
 
 ## Stack
 
@@ -37,7 +42,7 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - The global master database stores tenant registry data, subdomains, database connection references, and module activation state.
 - Tenant selection is request-scoped and derived from the incoming wildcard hostname before tenant-bound handlers run.
 - Tenant database credentials are never intended for browser exposure; the server resolves and owns tenant connections.
-- Authentication is planned as local database-backed username/password authentication only, with no OAuth provider dependency.
+- Authentication uses tenant-local database-backed username/password authentication with signed, tenant-bound sessions and no OAuth provider dependency.
 
 ## Product
 

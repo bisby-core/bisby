@@ -3,6 +3,7 @@ import type { TenantContext } from "./contracts";
 
 export interface AuthenticatedLocalUser {
   readonly accountId: string;
+  readonly tenantId: string;
   readonly role: "staff" | "client";
 }
 

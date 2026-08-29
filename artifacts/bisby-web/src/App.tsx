@@ -1,5 +1,5 @@
-import { type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type FormEvent, type ReactNode, useState } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -11,6 +11,7 @@ import {
   CircleAlert,
   Grid2X2,
   LockKeyhole,
+  LogIn,
   Radio,
   RotateCcw,
   ShieldAlert,
@@ -19,6 +20,8 @@ import {
 import {
   getGetRouteAccessQueryKey,
   ModuleKey,
+  useLogin,
+  useLogout,
   useGetRouteAccess,
   useHealthCheck,
   WorkspaceKey,
@@ -263,6 +266,104 @@ function LoadingState({ label }: { label: string }) {
   );
 }
 
+function Login() {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const login = useLogin();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      await login.mutateAsync({ data: { username, password } });
+      await queryClient.invalidateQueries();
+      setLocation('/a/ws-1');
+    } catch {
+      // The mutation state renders the safe API error below.
+    }
+  };
+
+  const errorStatus = getErrorStatus(login.error);
+  return (
+    <RouteFrame eyebrow="BisBy / local access" title="Sign in to your tenant.">
+      <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_.8fr]">
+        <form
+          onSubmit={handleSubmit}
+          className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"
+          data-testid="form-local-login"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center bg-[hsl(var(--secondary)/.22)] text-[hsl(var(--secondary-foreground))]">
+              <LogIn className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant-local account</p>
+              <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Credentials stay inside the resolved tenant database.</p>
+            </div>
+          </div>
+          <label className="mt-10 block font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]" htmlFor="username">
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+            required
+            className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3 font-mono text-sm outline-none transition-colors focus:border-[hsl(var(--ring))]"
+            data-testid="input-login-username"
+          />
+          <label className="mt-6 block font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+            className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3 font-mono text-sm outline-none transition-colors focus:border-[hsl(var(--ring))]"
+            data-testid="input-login-password"
+          />
+          {login.isError && (
+            <p className="mt-5 border-l-2 border-[hsl(var(--accent))] pl-3 text-sm leading-6 text-[hsl(var(--accent-foreground))]" data-testid="status-login-error">
+              {errorStatus === 401 ? 'The username or password was not accepted.' : 'This tenant could not complete the sign-in request.'}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={login.isPending}
+            className="mt-8 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50"
+            data-testid="button-login-submit"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            {login.isPending ? 'Checking credentials' : 'Sign in'}
+          </button>
+        </form>
+        <div className="border border-[hsl(var(--border))] bg-[hsl(var(--primary))] p-6 text-[hsl(var(--primary-foreground))] md:p-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--primary-foreground)/.58)]">Access boundary</p>
+          <p className="mt-12 text-2xl font-semibold tracking-[-0.035em]">One account. One tenant database.</p>
+          <p className="mt-4 text-sm leading-6 text-[hsl(var(--primary-foreground)/.64)]">
+            Sign in from a tenant subdomain so BisBy can resolve the correct local account store before checking workspace permissions.
+          </p>
+          <div className="mt-10 border-t border-[hsl(var(--primary-foreground)/.18)] pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground)/.5)]">
+            Session expires after 8 hours
+          </div>
+        </div>
+      </div>
+      <div className="mt-8 border-t border-[hsl(var(--border))] pt-5">
+        <Link href="/" className="font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--foreground))]" data-testid="link-login-return">
+          Return to entry
+        </Link>
+      </div>
+    </RouteFrame>
+  );
+}
+
 function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; moduleLetter: ModuleLetter; workspaceKey: WorkspaceKey }) {
   const details = status === 401
     ? { code: '401', title: 'Identity required', body: 'This destination needs an authenticated local account before access can be resolved.' }
@@ -284,6 +385,11 @@ function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; 
         </div>
         <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">{details.title}</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">{details.body}</p>
+         {status === 401 && (
+           <Link href="/login" className="mt-5 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85" data-testid="link-route-login">
+             <LogIn className="h-3.5 w-3.5" /> Open local sign in
+           </Link>
+         )}
       </div>
       <div className="border-l border-[hsl(var(--border))] pl-4 font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:justify-self-end">
         <span className="uppercase tracking-[0.14em]">Requested</span>
@@ -297,6 +403,16 @@ function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; 
 function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId }: { moduleLetter: ModuleLetter; workspaceKey: WorkspaceKey; subdomain: string; tenantId: string }) {
   const isDashboard = workspaceKey === 'ws-1';
   const destinationName = isDashboard ? 'Dashboard' : `Workspace ${workspaceKey.replace('ws-', '')}`;
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const logout = useLogout();
+
+  const handleLogout = async () => {
+    await logout.mutateAsync();
+    queryClient.clear();
+    setLocation('/login');
+  };
+
   return (
     <div className="mt-12 border border-[hsl(var(--secondary)/.6)] bg-[hsl(var(--card)/.8)]" data-testid="status-route-authorized">
       <div className="flex flex-col gap-5 border-b border-[hsl(var(--border))] p-6 md:flex-row md:items-center md:justify-between md:p-8">
@@ -309,10 +425,22 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">Resolved destination</p>
           </div>
         </div>
-        <div className="font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:text-right">
-           <span className="text-[hsl(var(--foreground))]">{subdomain}.bisby.com</span>
-          <br />
-          tenant {tenantId}
+        <div className="flex flex-wrap items-center gap-5 md:justify-end">
+          <div className="font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:text-right">
+            <span className="text-[hsl(var(--foreground))]">{subdomain}.bisby.com</span>
+            <br />
+            tenant {tenantId}
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={logout.isPending}
+            className="inline-flex items-center gap-2 border border-[hsl(var(--border))] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))] transition-colors hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] disabled:cursor-wait disabled:opacity-50"
+            data-testid="button-logout"
+          >
+            <LogIn className="h-3.5 w-3.5 rotate-180" />
+            {logout.isPending ? 'Signing out' : 'Sign out'}
+          </button>
         </div>
       </div>
       <div className="p-6 md:p-8">
@@ -407,6 +535,7 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/login" component={Login} />
         <Route path="/:moduleLetter/:workspaceKey" component={WorkspaceRoute} />
         <Route path="/:moduleLetter" component={ModuleRoute} />
         <Route component={() => <InvalidRoute requested={window.location.pathname} reason="Use /a through /h, or /a/ws-1 through /h/ws-10." />} />

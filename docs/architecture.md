@@ -67,7 +67,17 @@ Authentication is intentionally local to the resolved tenant database:
 - sessions and credentials must never be shared across tenant databases;
 - no third-party OAuth provider is part of the BisBy authentication contract.
 
-The authentication implementation is not part of this skeleton.
+The API implements local authentication with:
+
+- scrypt password hashes stored in `core_admin.client_accounts`;
+- an eight-hour HMAC-signed, tenant-bound session cookie;
+- account revalidation against the resolved tenant database on each request;
+- `POST /api/auth/login`, `GET /api/auth/me`, and `POST /api/auth/logout`;
+- no OAuth provider or shared cross-tenant session store.
+
+The session cookie is host-only and never includes a tenant database connection
+reference. A session presented to a different resolved tenant is rejected and
+cleared.
 
 ## Migrations
 
@@ -81,8 +91,28 @@ The API package contains two Knex migration tracks:
   `visitor_submissions` table inside each module schema.
 
 The master connection is read from `BISBY_MASTER_DATABASE_URL`. A tenant
-blueprint migration targets `BISBY_TENANT_DATABASE_URL`; tenant credentials are
-not hard-coded or exposed to clients.
+blueprint migration targets `BISBY_TENANT_DATABASE_URL` when migrating one
+database manually. The repeatable initial provisioning command instead requires
+the two distinct physical database URLs
+`BISBY_DESIGN_TENANT_DATABASE_URL` and
+`BISBY_CLIENTALPHA_TENANT_DATABASE_URL`. Tenant credentials are not hard-coded
+or exposed to clients.
+
+Run the initial seed with:
+
+```sh
+pnpm --filter @workspace/api-server run seed:tenants
+```
+
+The command runs master migrations, migrates each tenant database separately,
+upserts `design` and `clientalpha`, activates all eight modules, and creates
+the tenant-local `admin` account with view/edit access to `ws-1` through
+`ws-10`. It verifies the two connection URLs resolve to different PostgreSQL
+server/database identities before applying any tenant migrations. Re-running it
+is safe. Development/test runs use the test password
+`password123` only when `BISBY_DEFAULT_ADMIN_PASSWORD` is absent; production
+seeding requires that variable explicitly and the password value is never
+logged.
 
 ## Vercel routing
 

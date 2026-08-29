@@ -18,6 +18,45 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Sign in with a tenant-local account
+ */
+export const loginBodyUsernameMax = 255;
+
+export const loginBodyPasswordMax = 255;
+
+
+
+export const LoginBody = zod.object({
+  "username": zod.string().min(1).max(loginBodyUsernameMax),
+  "password": zod.string().min(1).max(loginBodyPasswordMax)
+})
+
+export const LoginResponse = zod.object({
+  "accountId": zod.string(),
+  "tenantId": zod.string(),
+  "role": zod.enum(['staff', 'client'])
+})
+
+
+/**
+ * @summary Get the current tenant-local account
+ */
+export const GetCurrentUserResponse = zod.object({
+  "accountId": zod.string(),
+  "tenantId": zod.string(),
+  "role": zod.enum(['staff', 'client'])
+})
+
+
+/**
+ * @summary End the current tenant-local session
+ */
+export const LogoutResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
  * Returns access only when the authenticated local account is assigned to the requested module and workspace.
  * @summary Check access to a tenant workspace route
  */

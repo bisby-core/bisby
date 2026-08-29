@@ -6,7 +6,7 @@ import { createMasterDatabase, createPostgresClient } from "./knex";
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const migrationRoot = path.join(currentDirectory, "migrations");
 
-function migrationConfig(directory: string): Knex.MigratorConfig {
+export function migrationConfig(directory: string): Knex.MigratorConfig {
   return {
     directory: path.join(migrationRoot, directory),
     extension: "ts",
@@ -32,10 +32,19 @@ function createMigrationDatabase(target: string): Knex {
 }
 
 const target = process.argv[2] ?? "master";
-const database = createMigrationDatabase(target);
 
-try {
-  await database.migrate.latest(migrationConfig(target));
-} finally {
-  await database.destroy();
+export async function runMigrations(target: string): Promise<void> {
+  const database = createMigrationDatabase(target);
+  try {
+    await database.migrate.latest(migrationConfig(target));
+  } finally {
+    await database.destroy();
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  void runMigrations(target).catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
