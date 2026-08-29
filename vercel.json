@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/bisby-web run build",
+  "outputDirectory": "artifacts/bisby-web/dist/public",
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "^(?<tenant>[^.]+)\\.bisby\\.com$"
+        }
+      ],
+      "destination": "/api/:path*"
+    }
+  ]
+}

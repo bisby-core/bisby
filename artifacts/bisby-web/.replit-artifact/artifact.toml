@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BisBy"
+description = "The BisBy tenant workspace shell. Resolves tenant subdomains, module routes, and workspace nodes while showing clear construction placeholders for unbuilt product areas."
+version = "1.0.0"
+id = "artifacts/bisby-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25321
+
+[services.development]
+run = "pnpm --filter @workspace/bisby-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bisby-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bisby-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25321"
+BASE_PATH = "/"

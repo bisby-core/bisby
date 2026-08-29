@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+/**
+ * @pattern ^ws-(?:[1-9]|10)$
+ */
+export type WorkspaceKey = string;

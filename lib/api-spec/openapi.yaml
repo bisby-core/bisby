@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: routing
+    description: Tenant route authorization operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /access/{moduleKey}/{workspaceKey}:
+    get:
+      operationId: getRouteAccess
+      tags: [routing]
+      summary: Check access to a tenant workspace route
+      description: Returns access only when the authenticated local account is assigned to the requested module and workspace.
+      parameters:
+        - name: moduleKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ModuleKey"
+        - name: workspaceKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/WorkspaceKey"
+      responses:
+        "200":
+          description: The authenticated account is assigned to the route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteAccess"
+        "401":
+          description: Authentication is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The authenticated account is not assigned to the route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The route target does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +77,44 @@ components:
           type: string
       required:
         - status
+    ModuleKey:
+      type: string
+      enum:
+        - module_a
+        - module_b
+        - module_c
+        - module_d
+        - module_e
+        - module_f
+        - module_g
+        - module_h
+    WorkspaceKey:
+      type: string
+      pattern: "^ws-(?:[1-9]|10)$"
+    RouteAccess:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        tenantId:
+          type: string
+        subdomain:
+          type: string
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKey:
+          $ref: "#/components/schemas/WorkspaceKey"
+      required:
+        - allowed
+        - tenantId
+        - subdomain
+        - moduleKey
+        - workspaceKey
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

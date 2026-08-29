@@ -5,9 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export type ModuleKey = typeof ModuleKey[keyof typeof ModuleKey];
 
@@ -22,21 +19,3 @@ export const ModuleKey = {
   module_g: 'module_g',
   module_h: 'module_h',
 } as const;
-
-/**
- * @pattern ^ws-(?:[1-9]|10)$
- */
-export type WorkspaceKey = string;
-
-export interface RouteAccess {
-  allowed: boolean;
-  tenantId: string;
-  subdomain: string;
-  moduleKey: ModuleKey;
-  workspaceKey: WorkspaceKey;
-}
-
-export interface ApiError {
-  error: string;
-}
-

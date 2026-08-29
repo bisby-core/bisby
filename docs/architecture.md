@@ -42,6 +42,12 @@ an in-memory tenant pool manager, and Express middleware. The middleware
 attaches only the resolved tenant context and Knex handle to the request; raw
 database credentials remain server-side.
 
+Route access is enforced server-side through
+`core_admin.tab_permissions`. The access endpoint requires an authenticated
+local account and checks the normalized module schema plus workspace key before
+returning a successful authorization response. Missing authentication returns
+401; missing module or workspace assignment returns 403.
+
 ## Hostname rules
 
 - Production tenant hosts use `<subdomain>.bisby.com`.
@@ -77,3 +83,12 @@ The API package contains two Knex migration tracks:
 The master connection is read from `BISBY_MASTER_DATABASE_URL`. A tenant
 blueprint migration targets `BISBY_TENANT_DATABASE_URL`; tenant credentials are
 not hard-coded or exposed to clients.
+
+## Vercel routing
+
+`vercel.json` matches tenant hosts shaped like `<subdomain>.bisby.com` and
+rewrites their requests to the catch-all Express function at `/api/:path*`.
+The catch-all entry imports the same Express app used by the local API
+workflow, so hostname parsing and database routing remain centralized. The
+wildcard domain still needs to be attached to the Vercel project and DNS must
+point to Vercel.
