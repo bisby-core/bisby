@@ -37,9 +37,10 @@ The intended request lifecycle is:
 6. Attach a request-scoped tenant context and tenant database handle.
 7. Let downstream handlers access only the resolved tenant context.
 
-The current code includes the parsing and type contracts for this lifecycle.
-The master registry repository, connection pool cache, and middleware wiring
-remain intentionally unimplemented in this initialization phase.
+The API now implements this lifecycle through a Knex master-registry adapter,
+an in-memory tenant pool manager, and Express middleware. The middleware
+attaches only the resolved tenant context and Knex handle to the request; raw
+database credentials remain server-side.
 
 ## Hostname rules
 
@@ -61,3 +62,18 @@ Authentication is intentionally local to the resolved tenant database:
 - no third-party OAuth provider is part of the BisBy authentication contract.
 
 The authentication implementation is not part of this skeleton.
+
+## Migrations
+
+The API package contains two Knex migration tracks:
+
+- `migrate:master` creates the global platform routing tables and registers the
+  eight canonical modules in the master database.
+- `migrate:tenant` creates `core_admin` plus `module_a` through `module_h` in a
+  tenant database. The reusable blueprint creates
+  `core_admin.client_accounts`, `core_admin.tab_permissions`, and one
+  `visitor_submissions` table inside each module schema.
+
+The master connection is read from `BISBY_MASTER_DATABASE_URL`. A tenant
+blueprint migration targets `BISBY_TENANT_DATABASE_URL`; tenant credentials are
+not hard-coded or exposed to clients.

@@ -10,13 +10,14 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required server env: `PORT`
-- Planned database env: `MASTER_DATABASE_URL`; tenant database URLs are resolved from the master registry at runtime
+- Required global routing database secret: `BISBY_MASTER_DATABASE_URL`
+- Tenant blueprint migration env: `BISBY_TENANT_DATABASE_URL` (when migrating a specific tenant database)
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
+- DB: PostgreSQL + Knex.js for master and tenant routing
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
