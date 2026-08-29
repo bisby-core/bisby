@@ -28,6 +28,7 @@ if (!basePath) {
 }
 
 export default defineConfig({
+  // Keep the Vercel workspace-root build marker explicit for clean deployments.
   base: basePath,
   plugins: [
     react(),
