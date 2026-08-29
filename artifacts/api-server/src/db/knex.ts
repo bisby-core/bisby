@@ -1,8 +1,10 @@
 import knex, { type Knex } from "knex";
 
-const DEFAULT_POOL = {
+const DEFAULT_POOL: Knex.PoolConfig = {
   min: 0,
   max: 10,
+  acquireTimeoutMillis: 10_000,
+  createTimeoutMillis: 10_000,
 };
 
 export function createPostgresClient(
@@ -11,8 +13,13 @@ export function createPostgresClient(
 ): Knex {
   return knex({
     client: "pg",
-    connection: connectionString,
+    connection: {
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10_000,
+    },
     pool,
+    acquireConnectionTimeout: 10_000,
   });
 }
 
