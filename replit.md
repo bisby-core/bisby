@@ -1,6 +1,6 @@
-# [Project name]
+# BisBy
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Core infrastructure skeleton for a database-per-tenant SaaS application.
 
 ## Run & Operate
 
@@ -9,7 +9,8 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required server env: `PORT`
+- Planned database env: `MASTER_DATABASE_URL`; tenant database URLs are resolved from the master registry at runtime
 
 ## Stack
 
@@ -22,23 +23,34 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src/config` — typed runtime configuration boundaries
+- `artifacts/api-server/src/tenancy` — subdomain parsing, tenant context, and resolver contracts
+- `artifacts/api-server/src/modules` — bounded module identifiers and future module entry points
+- `docs/architecture.md` — source of truth for the database-per-tenant architecture
+- `lib/db` — shared database package reserved for the master and tenant connection implementations
+- `lib/api-spec` — OpenAPI source of truth for API contracts
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- BisBy uses a physically separate PostgreSQL database for every tenant; shared `tenant_id` rows are not considered tenant isolation.
+- The global master database stores tenant registry data, subdomains, database connection references, and module activation state.
+- Tenant selection is request-scoped and derived from the incoming wildcard hostname before tenant-bound handlers run.
+- Tenant database credentials are never intended for browser exposure; the server resolves and owns tenant connections.
+- Authentication is planned as local database-backed username/password authentication only, with no OAuth provider dependency.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.com`.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Preserve the database-per-tenant isolation model; do not replace it with shared-database tenant filtering.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not connect to a tenant database until the master registry has resolved and validated the tenant context.
+- Do not accept a client-provided database URL or tenant identifier as an authority for routing.
+- Keep module boundaries explicit; module activation in the master registry controls future module access.
 
 ## Pointers
 
