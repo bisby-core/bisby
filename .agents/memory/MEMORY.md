@@ -1,2 +1,3 @@
 - [BisBy route matching](routing-ui-quirks.md) — capture workspace keys as complete segments, then normalize the `ws-` prefix.
 - [Migration entrypoint boundaries](migration-entrypoint-boundaries.md) — reusable migration helpers must not execute DDL when imported by provisioning or tests.
+- [GitHub push authentication](github-push-auth.md) — use a temporary secret-expanded remote for manual pushes, verify the ref, then restore the credential-free origin URL.
