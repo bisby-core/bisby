@@ -25,6 +25,3 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-BISBY_DESIGN_TENANT_DATABASE_URL = "postgresql://postgres:[ Godwin!1980@1977]@db.alzalrsdrwbmbkvdsbjq.supabase.co:5432/bisby_tenant_design"
-BISBY_CLIENTALPHA_TENANT_DATABASE_URL = "postgresql://postgres:[ Godwin!1980@1977]@db.alzalrsdrwbmbkvdsbjq.supabase.co:5432/bisby_tenant_clientalpha"
-BISBY_DEFAULT_ADMIN_PASSWORD = "Godwin!1980@1977"
