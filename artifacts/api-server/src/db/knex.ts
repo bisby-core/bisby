@@ -32,6 +32,15 @@ function parsePort(value: string): number {
   return port;
 }
 
+function validateDatabaseName(databaseName: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_$-]*$/.test(databaseName)) {
+    throw new Error(
+      "PostgreSQL database names must be plain names without protocols, query strings, paths, or whitespace.",
+    );
+  }
+  return databaseName;
+}
+
 function resolveSsl(
   value: string | undefined,
 ): false | { readonly rejectUnauthorized: false } {
@@ -60,7 +69,7 @@ export function createPostgresClient(
       password: requiredEnvironment("PGPASSWORD", environment),
       host: requiredEnvironment("PGHOST", environment),
       port: parsePort(portValue),
-      database: options.databaseName,
+      database: validateDatabaseName(options.databaseName),
       ssl: resolveSsl(environment["PGSSLMODE"]),
       connectionTimeoutMillis: 10_000,
     },
