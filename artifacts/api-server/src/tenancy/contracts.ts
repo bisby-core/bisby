@@ -4,10 +4,10 @@ export interface TenantRegistryRecord {
   readonly tenantId: string;
   readonly subdomain: string;
   /**
-   * A server-only connection string loaded from the master registry.
+   * A server-only database name loaded from the master registry.
    * It must never be serialized into a browser response or log record.
    */
-  readonly databaseConnectionUrl: string;
+  readonly databaseName: string;
   readonly active: boolean;
   readonly enabledModules: readonly ModuleSchemaName[];
 }

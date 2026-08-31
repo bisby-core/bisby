@@ -18,7 +18,7 @@ export async function up(knex: Knex): Promise<void> {
     table.uuid("id").primary().defaultTo(knex.raw("gen_random_uuid()"));
     table.string("subdomain", 63).notNullable().unique();
     table.string("display_name", 255).notNullable();
-    table.text("database_connection_url").notNullable();
+    table.text("database_name").notNullable();
     table.boolean("is_active").notNullable().defaultTo(true);
     table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
     table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());

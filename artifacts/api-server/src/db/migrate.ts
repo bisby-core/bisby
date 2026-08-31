@@ -19,13 +19,13 @@ function createMigrationDatabase(target: string): Knex {
   }
 
   if (target === "tenant") {
-    const connectionString = process.env["BISBY_TENANT_DATABASE_URL"];
-    if (!connectionString) {
+    const databaseName = process.env["BISBY_TENANT_DB_NAME"];
+    if (!databaseName) {
       throw new Error(
-        "BISBY_TENANT_DATABASE_URL must be configured for tenant blueprint migrations.",
+        "BISBY_TENANT_DB_NAME must be configured for tenant blueprint migrations.",
       );
     }
-    return createPostgresClient(connectionString);
+    return createPostgresClient({ databaseName });
   }
 
   throw new Error('Migration target must be either "master" or "tenant".');

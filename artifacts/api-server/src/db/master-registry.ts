@@ -8,7 +8,7 @@ import type { TenantRegistry, TenantRegistryRecord } from "../tenancy/contracts"
 interface TenantRow {
   id: string;
   subdomain: string;
-  database_connection_url: string;
+  database_name: string;
   is_active: boolean;
 }
 
@@ -27,7 +27,7 @@ export class KnexTenantRegistry implements TenantRegistry {
     subdomain: string,
   ): Promise<TenantRegistryRecord | null> {
     const tenant = await this.database<TenantRow>("tenants")
-      .select("id", "subdomain", "database_connection_url", "is_active")
+      .select("id", "subdomain", "database_name", "is_active")
       .where({ subdomain, is_active: true })
       .first();
 
@@ -51,7 +51,7 @@ export class KnexTenantRegistry implements TenantRegistry {
     return {
       tenantId: tenant.id,
       subdomain: tenant.subdomain,
-      databaseConnectionUrl: tenant.database_connection_url,
+      databaseName: tenant.database_name,
       active: tenant.is_active,
       enabledModules: modules
         .map((module) => module.schema_name)

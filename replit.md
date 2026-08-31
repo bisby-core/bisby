@@ -10,10 +10,11 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required server env: `PORT`
-- Required global routing database secret: `BISBY_MASTER_DATABASE_URL`
-- Tenant blueprint migration env: `BISBY_TENANT_DATABASE_URL` (when migrating a specific tenant database)
+- Required PostgreSQL secrets: `PGUSER`, `PGPASSWORD`, `PGHOST`, `PGPORT`, `PGSSLMODE`
+- Required global routing database name: `BISBY_MASTER_DB_NAME`
+- Tenant blueprint migration env: `BISBY_TENANT_DB_NAME` (when migrating a specific tenant database)
 - Local session secret: `SESSION_SECRET`
-- Initial seed tenant databases: `BISBY_DESIGN_TENANT_DATABASE_URL`, `BISBY_CLIENTALPHA_TENANT_DATABASE_URL`
+- Initial seed tenant databases: `BISBY_DESIGN_DB_NAME`, `BISBY_CLIENTALPHA_DB_NAME`
 - Optional seed password: `BISBY_DEFAULT_ADMIN_PASSWORD` (required in production; development/test default is intentionally `password123`)
 - `pnpm --filter @workspace/api-server run seed:tenants` — migrate and idempotently seed both initial tenants
 - `pnpm --filter @workspace/api-server run test:auth` — run password and signed-session tests

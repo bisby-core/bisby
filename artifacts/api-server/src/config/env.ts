@@ -3,7 +3,7 @@ export type RuntimeEnvironment = "development" | "test" | "production";
 export interface RuntimeConfig {
   readonly environment: RuntimeEnvironment;
   readonly port: number;
-  readonly masterDatabaseUrl?: string;
+  readonly masterDatabaseName?: string;
   readonly bisbyRootDomain: string;
 }
 
@@ -34,7 +34,7 @@ export function loadRuntimeConfig(
   return {
     environment: parseEnvironment(environment["NODE_ENV"]),
     port: parsePort(environment["PORT"]),
-    masterDatabaseUrl: environment["BISBY_MASTER_DATABASE_URL"],
+    masterDatabaseName: environment["BISBY_MASTER_DB_NAME"],
     bisbyRootDomain: environment["BISBY_ROOT_DOMAIN"] ?? "bisby.com",
   };
 }

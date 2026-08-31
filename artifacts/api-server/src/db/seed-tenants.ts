@@ -19,12 +19,12 @@ const INITIAL_TENANTS = [
   {
     subdomain: "design",
     displayName: "Master Design Studio",
-    databaseEnv: "BISBY_DESIGN_TENANT_DATABASE_URL",
+    databaseNameEnv: "BISBY_DESIGN_DB_NAME",
   },
   {
     subdomain: "clientalpha",
     displayName: "Client Alpha",
-    databaseEnv: "BISBY_CLIENTALPHA_TENANT_DATABASE_URL",
+    databaseNameEnv: "BISBY_CLIENTALPHA_DB_NAME",
   },
 ] as const;
 
@@ -42,12 +42,12 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
-function assertDistinctTenantConnections(
-  connections: readonly string[],
+function assertDistinctTenantDatabaseNames(
+  databaseNames: readonly string[],
 ): void {
-  if (new Set(connections).size !== connections.length) {
+  if (new Set(databaseNames).size !== databaseNames.length) {
     throw new Error(
-      "Each BisBy tenant must use a physically separate database connection.",
+      "Each BisBy tenant must use a distinct physical PostgreSQL database name.",
     );
   }
 }
@@ -149,7 +149,7 @@ async function seedTenantDatabase(
 
 async function seedMasterDatabase(
   database: Knex,
-  tenantConnections: Readonly<Record<string, string>>,
+  tenantDatabaseNames: Readonly<Record<string, string>>,
 ): Promise<void> {
   await database.transaction(async (transaction) => {
     const modules = await transaction<ModuleRow>("global_module_registry")
@@ -167,14 +167,14 @@ async function seedMasterDatabase(
         .insert({
           subdomain: tenant.subdomain,
           display_name: tenant.displayName,
-          database_connection_url: tenantConnections[tenant.subdomain],
+          database_name: tenantDatabaseNames[tenant.subdomain],
           is_active: true,
           updated_at: transaction.fn.now(),
         })
         .onConflict("subdomain")
         .merge({
           display_name: tenant.displayName,
-          database_connection_url: tenantConnections[tenant.subdomain],
+          database_name: tenantDatabaseNames[tenant.subdomain],
           is_active: true,
           updated_at: transaction.fn.now(),
         });
@@ -209,14 +209,13 @@ async function seedMasterDatabase(
 }
 
 async function main(): Promise<void> {
-  const masterConnection = requiredEnvironment("BISBY_MASTER_DATABASE_URL");
-  const tenantConnections = Object.fromEntries(
+  const tenantDatabaseNames = Object.fromEntries(
     INITIAL_TENANTS.map((tenant) => [
       tenant.subdomain,
-      requiredEnvironment(tenant.databaseEnv),
+      requiredEnvironment(tenant.databaseNameEnv),
     ]),
   );
-  assertDistinctTenantConnections(Object.values(tenantConnections));
+  assertDistinctTenantDatabaseNames(Object.values(tenantDatabaseNames));
 
   const configuredPassword = process.env["BISBY_DEFAULT_ADMIN_PASSWORD"];
   if (process.env["NODE_ENV"] === "production" && !configuredPassword) {
@@ -229,7 +228,9 @@ async function main(): Promise<void> {
   const masterDatabase = createMasterDatabase();
   const tenantDatabases = INITIAL_TENANTS.map((tenant) => ({
     ...tenant,
-    database: createPostgresClient(tenantConnections[tenant.subdomain]),
+    database: createPostgresClient({
+      databaseName: tenantDatabaseNames[tenant.subdomain],
+    }),
   }));
 
   try {
@@ -240,7 +241,7 @@ async function main(): Promise<void> {
       new Set(identities.map(databaseIdentityKey)).size !== identities.length
     ) {
       throw new Error(
-        "The configured BisBy tenant URLs resolve to the same physical PostgreSQL database.",
+        "The configured BisBy tenant database names resolve to the same physical PostgreSQL database.",
       );
     }
 
@@ -249,14 +250,16 @@ async function main(): Promise<void> {
       await migrateDatabase(database, "tenant");
       await seedTenantDatabase(database, passwordHash);
     }
-    await seedMasterDatabase(masterDatabase, tenantConnections);
+    await seedMasterDatabase(masterDatabase, tenantDatabaseNames);
 
     if (!configuredPassword) {
       console.warn(
         "Development administrator credentials were seeded with the built-in test default; change the password before production use.",
       );
     }
-    console.log("BisBy tenants design and clientalpha were provisioned.");
+    console.log(
+      "BisBy provisioning complete: master schema migrated; design and clientalpha tenant schemas migrated; eight modules activated; administrator accounts and workspace permissions upserted; repeatable seed successful.",
+    );
   } finally {
     await Promise.all([
       masterDatabase.destroy(),

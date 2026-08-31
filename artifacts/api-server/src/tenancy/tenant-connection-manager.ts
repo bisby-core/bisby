@@ -3,7 +3,7 @@ import type { TenantRegistryRecord } from "./contracts";
 import { createPostgresClient } from "../db/knex";
 
 /**
- * Keeps one bounded Knex pool per tenant database. The connection string is
+ * Keeps one bounded Knex pool per tenant database. The database name is
  * sourced exclusively from the master registry and is never returned through
  * the request context.
  */
@@ -34,7 +34,9 @@ export class TenantConnectionManager {
   }
 
   private async openConnection(record: TenantRegistryRecord): Promise<Knex> {
-    const connection = createPostgresClient(record.databaseConnectionUrl);
+    const connection = createPostgresClient({
+      databaseName: record.databaseName,
+    });
 
     try {
       await connection.raw("select 1");

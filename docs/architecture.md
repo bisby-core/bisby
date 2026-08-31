@@ -90,13 +90,13 @@ The API package contains two Knex migration tracks:
   `core_admin.client_accounts`, `core_admin.tab_permissions`, and one
   `visitor_submissions` table inside each module schema.
 
-The master connection is read from `BISBY_MASTER_DATABASE_URL`. A tenant
-blueprint migration targets `BISBY_TENANT_DATABASE_URL` when migrating one
-database manually. The repeatable initial provisioning command instead requires
-the two distinct physical database URLs
-`BISBY_DESIGN_TENANT_DATABASE_URL` and
-`BISBY_CLIENTALPHA_TENANT_DATABASE_URL`. Tenant credentials are not hard-coded
-or exposed to clients.
+All PostgreSQL connections use the server-side `PGUSER`, `PGPASSWORD`,
+`PGHOST`, `PGPORT`, and `PGSSLMODE` parameters. The master connection targets
+`BISBY_MASTER_DB_NAME`. A tenant blueprint migration targets
+`BISBY_TENANT_DB_NAME` when migrating one database manually. The repeatable
+initial provisioning command instead targets the two distinct physical
+databases named by `BISBY_DESIGN_DB_NAME` and `BISBY_CLIENTALPHA_DB_NAME`.
+Tenant credentials are not hard-coded or exposed to clients.
 
 Run the initial seed with:
 
@@ -107,7 +107,7 @@ pnpm --filter @workspace/api-server run seed:tenants
 The command runs master migrations, migrates each tenant database separately,
 upserts `design` and `clientalpha`, activates all eight modules, and creates
 the tenant-local `admin` account with view/edit access to `ws-1` through
-`ws-10`. It verifies the two connection URLs resolve to different PostgreSQL
+`ws-10`. It verifies the two database names resolve to different PostgreSQL
 server/database identities before applying any tenant migrations. Re-running it
 is safe. Development/test runs use the test password
 `password123` only when `BISBY_DEFAULT_ADMIN_PASSWORD` is absent; production
