@@ -5,6 +5,10 @@
   "outputDirectory": "artifacts/bisby-web/dist/public",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "api/[...path].ts"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
@@ -12,7 +16,11 @@
           "value": "^(?<tenant>[^.]+)\\.bisby\\.pro$"
         }
       ],
-      "destination": "/api/:path*"
+      "destination": "/:path*"
+    },
+    {
+      "source": "/(:path*)",
+      "destination": "/$1"
     }
   ]
 }
