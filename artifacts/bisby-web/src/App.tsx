@@ -188,7 +188,7 @@ function Home() {
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant URL format</p>
               <p className="mt-5 break-all font-mono text-lg leading-relaxed text-[hsl(var(--foreground))] md:text-2xl">
                 <span className="text-[hsl(var(--accent))]">{'{tenant}'}</span>
-                <span className="text-[hsl(var(--muted-foreground))]">.bisby.com/</span>
+                <span className="text-[hsl(var(--muted-foreground))]">.bisby.pro/</span>
                 <span className="text-[hsl(var(--secondary-foreground))]">a</span>
                 <span className="text-[hsl(var(--muted-foreground))]">/ws-</span>
                 <span className="text-[hsl(var(--secondary-foreground))]">1</span>
@@ -427,7 +427,7 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
         </div>
         <div className="flex flex-wrap items-center gap-5 md:justify-end">
           <div className="font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:text-right">
-            <span className="text-[hsl(var(--foreground))]">{subdomain}.bisby.com</span>
+            <span className="text-[hsl(var(--foreground))]">{subdomain}.bisby.pro</span>
             <br />
             tenant {tenantId}
           </div>
