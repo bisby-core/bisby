@@ -4,7 +4,7 @@ import {
   LoginResponse,
   GetCurrentUserResponse,
   LogoutResponse,
-} from "@workspace/api-zod";
+} from "./schemas";
 import { verifyPassword } from "../auth/password";
 import {
   clearSessionCookie,
