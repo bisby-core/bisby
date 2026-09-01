@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import {
   GetRouteAccessParams,
   GetRouteAccessResponse,
-} from "@workspace/api-zod";
+} from "./schemas";
 import type { AuthenticatedLocalUser } from "../tenancy/express";
 
 const router: IRouter = Router();
