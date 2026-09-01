@@ -47,7 +47,7 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 
 ## Product
 
-BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.com`.
+BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.pro`.
 
 ## User preferences
 
@@ -62,3 +62,9 @@ BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+
+## Owner control center
+
+- `bisby.pro` is the public platform homepage. `bisby.pro/owner/login` is the protected owner sign-in route and `/owner/dashboard` is the initial owner-control surface.
+- Set `BISBY_OWNER_USERNAME` and `BISBY_OWNER_PASSWORD` as production-only Vercel environment variables. Do not commit either value. Owner sessions use the existing `SESSION_SECRET` and are host-only, HTTP-only, `SameSite=Strict` cookies.
+- Tenant provisioning, administrator assignment, and module management need the next master-registry API phase; the dashboard deliberately does not expose these actions before server-side authorization and audit handling exist.

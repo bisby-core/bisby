@@ -50,8 +50,8 @@ returning a successful authorization response. Missing authentication returns
 
 ## Hostname rules
 
-- Production tenant hosts use `<subdomain>.bisby.com`.
-- `bisby.com`, `www.bisby.com`, localhost, and local IP hosts do not identify a
+- Production tenant hosts use `<subdomain>.bisby.pro`.
+- `bisby.pro`, `www.bisby.pro`, localhost, and local IP hosts do not identify a
   tenant.
 - Host parsing must use the request's trusted host configuration and must not
   trust an arbitrary client-supplied database URL or tenant ID.
@@ -116,7 +116,7 @@ logged.
 
 ## Vercel routing
 
-`vercel.json` matches tenant hosts shaped like `<subdomain>.bisby.com` and
+`vercel.json` matches tenant hosts shaped like `<subdomain>.bisby.pro` and
 rewrites their requests to the catch-all Express function at `/api/:path*`.
 The catch-all entry imports the same Express app used by the local API
 workflow, so hostname parsing and database routing remain centralized. The

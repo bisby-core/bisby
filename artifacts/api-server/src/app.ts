@@ -14,6 +14,7 @@ import { createDatabaseRouter } from "./tenancy/database-router";
 import { TenantConnectionManager } from "./tenancy/tenant-connection-manager";
 import healthRouter from "./routes/health";
 import authRouter from "./routes/auth";
+import ownerRouter from "./routes/owner";
 import { createLocalAuthMiddleware } from "./auth/local-auth-middleware";
 
 const app: Express = express();
@@ -48,12 +49,14 @@ app.set("trust proxy", 1);
 
 // Health is intentionally available without tenant resolution.
 app.use("/api", healthRouter);
+// Owner routes are intentionally resolved before tenant middleware.
+app.use("/api", ownerRouter);
 app.use(
   "/api",
   createDatabaseRouter({
     registry: tenantRegistry,
     connections: tenantConnections,
-    rootDomain: process.env["BISBY_ROOT_DOMAIN"] ?? "bisby.com",
+    rootDomain: process.env["BISBY_ROOT_DOMAIN"] ?? "bisby.pro",
   }),
 );
 app.use("/api", createLocalAuthMiddleware());

@@ -11,7 +11,7 @@ function normalizeHost(host: string): string {
 
 export function parseTenantSubdomain(
   host: string | undefined,
-  rootDomain = "bisby.com",
+  rootDomain = "bisby.pro",
 ): SubdomainParseResult {
   if (!host) {
     return { kind: "non-tenant", reason: "missing-host" };

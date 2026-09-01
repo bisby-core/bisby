@@ -35,6 +35,6 @@ export function loadRuntimeConfig(
     environment: parseEnvironment(environment["NODE_ENV"]),
     port: parsePort(environment["PORT"]),
     masterDatabaseName: environment["BISBY_MASTER_DB_NAME"],
-    bisbyRootDomain: environment["BISBY_ROOT_DOMAIN"] ?? "bisby.com",
+    bisbyRootDomain: environment["BISBY_ROOT_DOMAIN"] ?? "bisby.pro",
   };
 }
