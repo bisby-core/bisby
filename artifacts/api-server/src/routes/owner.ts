@@ -3,6 +3,7 @@ import {
   OwnerLoginBody,
   OwnerTenantIdParams,
   OwnerTenantModuleParams,
+  OwnerTenantAdministratorResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
 } from "./schemas";
@@ -24,6 +25,11 @@ import {
   updateTenantStatus,
 } from "../owner/control-plane";
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
+import {
+  listTenantAdministrators,
+  resetTenantAdministratorPassword,
+  TenantAdministratorError,
+} from "../owner/tenant-administrators";
 import { timingSafeEqual } from "node:crypto";
 import type { Knex } from "knex";
 
@@ -142,6 +148,67 @@ function ownerRouter(
       next(error);
     }
   });
+
+  router.get("/tenants/:tenantId/administrators", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsedParams = OwnerTenantIdParams.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({ error: "invalid_tenant_administrator_params" });
+      return;
+    }
+
+    try {
+      res.json(
+        await listTenantAdministrators(
+          masterDatabase,
+          parsedParams.data.tenantId,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof TenantAdministratorError) {
+        res.status(error.code === "tenant_not_found" ? 404 : 503).json({
+          error: error.code,
+          message: error.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  router.post(
+    "/tenants/:tenantId/administrators/reset-password",
+    async (req, res, next) => {
+      if (!requireOwnerSession(req, res)) return;
+      const parsedParams = OwnerTenantIdParams.safeParse(req.params);
+      const parsedBody = OwnerTenantAdministratorResetBody.safeParse(req.body);
+      if (!parsedParams.success || !parsedBody.success) {
+        res.status(400).json({ error: "invalid_tenant_administrator_reset_payload" });
+        return;
+      }
+
+      try {
+        res.json(
+          await resetTenantAdministratorPassword(
+            masterDatabase,
+            req.ownerUsername as string,
+            parsedParams.data.tenantId,
+            parsedBody.data.username,
+            parsedBody.data.temporaryPassword,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof TenantAdministratorError) {
+          res.status(error.code === "tenant_not_found" || error.code === "administrator_not_found" ? 404 : 503).json({
+            error: error.code,
+            message: error.message,
+          });
+          return;
+        }
+        next(error);
+      }
+    },
+  );
 
   router.post("/tenants/provision", async (req, res, next) => {
     if (!requireOwnerSession(req, res)) return;

@@ -50,6 +50,25 @@ interface ControlPlaneSnapshot {
   readonly recentAudit: readonly PlatformAuditEvent[];
 }
 
+interface TenantAdministrator {
+  readonly id: string;
+  readonly username: string;
+  readonly displayName: string;
+  readonly isActive: boolean;
+  readonly createdAt: string;
+}
+
+interface TenantAdministratorsSnapshot {
+  readonly tenantId: string;
+  readonly subdomain: string;
+  readonly administrators: readonly TenantAdministrator[];
+}
+
+interface AdministratorResetForm {
+  username: string;
+  temporaryPassword: string;
+}
+
 interface ProvisioningForm {
   subdomain: string;
   displayName: string;
@@ -391,12 +410,48 @@ function OwnerDashboard({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ProvisioningResult | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [administratorLoading, setAdministratorLoading] = useState(true);
+  const [administrators, setAdministrators] = useState<Record<string, readonly TenantAdministrator[]>>({});
+  const [administratorForms, setAdministratorForms] = useState<Record<string, AdministratorResetForm>>({});
+  const [notice, setNotice] = useState('');
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
+    setAdministratorLoading(true);
     setError('');
     try {
-      setSnapshot(await ownerApi<ControlPlaneSnapshot>('/control-plane'));
+      const nextSnapshot = await ownerApi<ControlPlaneSnapshot>('/control-plane');
+      const administratorSnapshots = await Promise.all(
+        nextSnapshot.tenants.map((tenant) =>
+          ownerApi<TenantAdministratorsSnapshot>(`/tenants/${tenant.id}/administrators`),
+        ),
+      );
+      setSnapshot(nextSnapshot);
+      setAdministrators(
+        Object.fromEntries(
+          administratorSnapshots.map((tenant) => [tenant.tenantId, tenant.administrators]),
+        ),
+      );
+      setAdministratorForms((current) =>
+        Object.fromEntries(
+          administratorSnapshots.map((tenant) => {
+            const activeAdministrator = tenant.administrators.find((administrator) => administrator.isActive);
+            const currentForm = current[tenant.tenantId];
+            const currentAdministratorIsAvailable = tenant.administrators.some(
+              (administrator) => administrator.isActive && administrator.username === currentForm?.username,
+            );
+            return [
+              tenant.tenantId,
+              {
+                username: currentAdministratorIsAvailable
+                  ? currentForm?.username ?? ''
+                  : activeAdministrator?.username ?? '',
+                temporaryPassword: '',
+              },
+            ];
+          }),
+        ),
+      );
     } catch (requestError) {
       if (requestError instanceof OwnerApiError && requestError.status === 401) {
         onSignedOut();
@@ -409,6 +464,7 @@ function OwnerDashboard({
       );
     } finally {
       setLoading(false);
+      setAdministratorLoading(false);
     }
   }, [onSignedOut]);
 
@@ -474,6 +530,52 @@ function OwnerDashboard({
     }
   };
 
+  const updateAdministratorForm = (
+    tenantId: string,
+    field: keyof AdministratorResetForm,
+    value: string,
+  ) => {
+    setAdministratorForms((current) => ({
+      ...current,
+      [tenantId]: {
+        username: current[tenantId]?.username ?? '',
+        temporaryPassword: current[tenantId]?.temporaryPassword ?? '',
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleAdministratorPasswordReset = async (tenant: ControlPlaneTenant) => {
+    const form = administratorForms[tenant.id];
+    if (!form?.username || !form.temporaryPassword) {
+      return;
+    }
+
+    const actionKey = `administrator-reset:${tenant.id}`;
+    setPendingAction(actionKey);
+    setError('');
+    setNotice('');
+    try {
+      await ownerApi(`/tenants/${tenant.id}/administrators/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({
+          username: form.username,
+          temporaryPassword: form.temporaryPassword,
+        }),
+      });
+      setNotice(`Temporary password reset for ${form.username} in ${tenant.displayName}.`);
+      await loadSnapshot();
+    } catch (requestError) {
+      setError(
+        requestError instanceof OwnerApiError
+          ? requestError.message
+          : 'The administrator password could not be reset.',
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   const activeTenants = snapshot?.tenants.filter((tenant) => tenant.isActive).length ?? 0;
   return (
     <OwnerFrame eyebrow="BisBy / owner control plane" title="Operate the tenant estate.">
@@ -532,6 +634,12 @@ function OwnerDashboard({
             </p>
           </div>
         </div>
+      )}
+
+      {notice && (
+        <p className="mt-6 border-l-2 border-[hsl(var(--secondary))] pl-3 text-sm text-[hsl(var(--muted-foreground))]" data-testid="status-administrator-success">
+          {notice}
+        </p>
       )}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.08fr_.92fr]">
@@ -599,6 +707,94 @@ function OwnerDashboard({
                       );
                     })}
                   </div>
+                   <div className="mt-6 border-t border-[hsl(var(--border))] pt-5">
+                     <div className="flex items-start justify-between gap-4">
+                       <div>
+                         <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">Tenant-local staff</p>
+                         <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Owner-managed administrator accounts in this physical database.</p>
+                       </div>
+                       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">
+                         {administratorLoading && !administrators[tenant.id]
+                           ? 'Loading'
+                           : `${administrators[tenant.id]?.length ?? 0} accounts`}
+                       </span>
+                     </div>
+                     {administratorLoading && !administrators[tenant.id] ? (
+                       <div className="mt-4 flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+                         <Activity className="h-3.5 w-3.5 animate-pulse" /> Loading staff accounts
+                       </div>
+                     ) : (
+                       <>
+                         <div className="mt-4 space-y-2">
+                           {(administrators[tenant.id] ?? []).map((administrator) => (
+                             <div key={administrator.id} className="flex items-center justify-between gap-3 border border-[hsl(var(--border))] px-3 py-2">
+                               <div className="min-w-0">
+                                 <p className="truncate text-sm">{administrator.displayName}</p>
+                                 <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{administrator.username}</p>
+                               </div>
+                               <span className={`shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] ${administrator.isActive ? 'text-[hsl(var(--secondary-foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                                 {administrator.isActive ? 'Active' : 'Inactive'}
+                               </span>
+                             </div>
+                           ))}
+                           {administrators[tenant.id]?.length === 0 && (
+                             <p className="text-sm text-[hsl(var(--muted-foreground))]">No tenant-local staff accounts found.</p>
+                           )}
+                         </div>
+                         <form
+                           className="mt-4 grid gap-3 sm:grid-cols-[.8fr_1fr_auto] sm:items-end"
+                           onSubmit={(event) => {
+                             event.preventDefault();
+                             void handleAdministratorPasswordReset(tenant);
+                           }}
+                           data-testid={`form-reset-administrator-${tenant.id}`}
+                         >
+                           <label className="block">
+                             <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Administrator</span>
+                             <select
+                               value={administratorForms[tenant.id]?.username ?? ''}
+                               onChange={(event) => updateAdministratorForm(tenant.id, 'username', event.target.value)}
+                               disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
+                               className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                               data-testid={`select-reset-administrator-${tenant.id}`}
+                             >
+                               {(administrators[tenant.id] ?? []).filter((administrator) => administrator.isActive).map((administrator) => (
+                                 <option key={administrator.id} value={administrator.username}>{administrator.username}</option>
+                               ))}
+                             </select>
+                           </label>
+                           <label className="block">
+                             <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Temporary password</span>
+                             <input
+                               type="password"
+                               minLength={12}
+                               maxLength={255}
+                               required
+                               value={administratorForms[tenant.id]?.temporaryPassword ?? ''}
+                               onChange={(event) => updateAdministratorForm(tenant.id, 'temporaryPassword', event.target.value)}
+                               autoComplete="new-password"
+                               placeholder="At least 12 characters"
+                               disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
+                               className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none placeholder:text-[hsl(var(--muted-foreground)/.55)] focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                               data-testid={`input-reset-administrator-password-${tenant.id}`}
+                             />
+                           </label>
+                           <button
+                             type="submit"
+                             disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
+                             className="inline-flex h-[38px] items-center justify-center gap-2 bg-[hsl(var(--primary))] px-3 font-mono text-[9px] uppercase tracking-[0.12em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+                             data-testid={`button-reset-administrator-${tenant.id}`}
+                           >
+                             <KeyRound className="h-3.5 w-3.5" />
+                             {pendingAction === `administrator-reset:${tenant.id}` ? 'Resetting' : 'Reset password'}
+                           </button>
+                         </form>
+                         {!(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive) && (
+                           <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))]">Only active staff accounts can receive a temporary password.</p>
+                         )}
+                       </>
+                     )}
+                   </div>
                 </div>
               ))
             ) : (

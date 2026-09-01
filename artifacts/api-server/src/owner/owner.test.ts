@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   OwnerTenantIdParams,
   OwnerTenantModuleParams,
+  OwnerTenantAdministratorResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
 } from "../routes/schemas";
@@ -95,4 +96,29 @@ test("validates owner lifecycle mutation inputs", () => {
   );
   assert.equal(OwnerToggleBody.safeParse({ active: "false" }).success, false);
   assert.equal(OwnerTenantIdParams.safeParse({ tenantId: "not-a-uuid" }).success, false);
+});
+
+test("validates tenant administrator password reset input", () => {
+  assert.equal(
+    OwnerTenantAdministratorResetBody.safeParse({
+      username: "admin",
+      temporaryPassword: "temporary-password",
+    }).success,
+    true,
+  );
+  assert.equal(
+    OwnerTenantAdministratorResetBody.safeParse({
+      username: "admin",
+      temporaryPassword: "short",
+    }).success,
+    false,
+  );
+  assert.equal(
+    OwnerTenantAdministratorResetBody.safeParse({
+      username: "admin",
+      temporaryPassword: "temporary-password",
+      passwordHash: "should-not-be-accepted",
+    }).success,
+    false,
+  );
 });

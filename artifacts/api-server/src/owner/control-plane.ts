@@ -65,6 +65,7 @@ export class OwnerControlPlaneError extends Error {
 export async function recordPlatformAudit(
   database: Knex,
   event: {
+    eventId?: string;
     eventType: string;
     actorUsername: string;
     subdomain?: string;
@@ -72,6 +73,7 @@ export async function recordPlatformAudit(
   },
 ): Promise<void> {
   await database("platform_audit_log").insert({
+    ...(event.eventId ? { id: event.eventId } : {}),
     event_type: event.eventType,
     actor_username: event.actorUsername,
     subdomain: event.subdomain ?? null,
