@@ -5,6 +5,7 @@ import {
   OwnerTenantModuleParams,
   OwnerToggleBody,
   ProvisionTenantBody,
+  ResetTenantAdministratorPasswordBody,
 } from "./schemas";
 import {
   clearOwnerSessionCookie,
@@ -24,6 +25,7 @@ import {
   updateTenantStatus,
 } from "../owner/control-plane";
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
+import { listTenantAdministrators, resetTenantAdministratorPassword } from "../owner/tenant-administrators";
 import { timingSafeEqual } from "node:crypto";
 import type { Knex } from "knex";
 
@@ -119,6 +121,20 @@ function ownerRouter(
   router.get("/me", (req, res) => {
     if (!requireOwnerSession(req, res)) return;
     res.json({ authenticated: true, username: req.ownerUsername });
+  });
+
+  router.get("/tenants/:tenantId/administrators", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    try { res.json({ administrators: await listTenantAdministrators(masterDatabase, req.params.tenantId) }); }
+    catch (error) { if (error instanceof Error && error.message === "tenant_not_found") { res.status(404).json({ error: error.message }); return; } next(error); }
+  });
+
+  router.post("/tenants/:tenantId/administrators/reset-password", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsed = ResetTenantAdministratorPasswordBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "invalid_administrator_password_reset_payload" }); return; }
+    try { await resetTenantAdministratorPassword(masterDatabase, req.ownerUsername as string, req.params.tenantId, parsed.data.username, parsed.data.temporaryPassword); res.status(204).end(); }
+    catch (error) { if (error instanceof Error && ["tenant_not_found", "administrator_not_found"].includes(error.message)) { res.status(404).json({ error: error.message }); return; } next(error); }
   });
 
   router.get("/control-plane", async (req, res, next) => {

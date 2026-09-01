@@ -58,6 +58,8 @@ interface ProvisioningForm {
   adminPassword: string;
 }
 
+interface TenantAdministrator { readonly id: string; readonly username: string; readonly displayName: string; readonly active: boolean; }
+
 interface ProvisioningResult {
   readonly status: 'provisioned';
   readonly tenantId: string;
@@ -377,6 +379,17 @@ function ProvisionTenantForm({
   );
 }
 
+function AdministratorReset({ tenant }: { tenant: ControlPlaneTenant }) {
+  const [administrators, setAdministrators] = useState<readonly TenantAdministrator[]>([]);
+  const [username, setUsername] = useState('');
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  useEffect(() => { void ownerApi<{ administrators: readonly TenantAdministrator[] }>(`/tenants/${tenant.id}/administrators`).then((value) => { setAdministrators(value.administrators); setUsername(value.administrators[0]?.username ?? ''); }).catch(() => setMessage('Administrators could not be loaded.')); }, [tenant.id]);
+  const reset = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setLoading(true); setMessage(''); try { await ownerApi(`/tenants/${tenant.id}/administrators/reset-password`, { method: 'POST', body: JSON.stringify({ username, temporaryPassword }) }); setTemporaryPassword(''); setMessage(`Temporary password set for ${username}. Share it through an approved channel.`); } catch (error) { setMessage(error instanceof OwnerApiError ? error.message : 'Password reset could not be completed.'); } finally { setLoading(false); } };
+  return <form onSubmit={reset} className="border-t border-[hsl(var(--border))] pt-4"><p className="text-sm font-medium">{tenant.displayName}</p><label className="mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">Administrator<select value={username} onChange={(event) => setUsername(event.target.value)} required className="mt-2 block w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm">{administrators.map((administrator) => <option key={administrator.id} value={administrator.username}>{administrator.displayName} ({administrator.username})</option>)}</select></label><label className="mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">Temporary password<input value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} type="password" minLength={12} autoComplete="new-password" required className="mt-2 block w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm" /></label><button disabled={loading || !username} className="mt-3 border border-[hsl(var(--border))] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] disabled:opacity-50">{loading ? 'Resetting' : 'Reset password'}</button>{message && <p className="mt-3 text-xs leading-5 text-[hsl(var(--muted-foreground))]">{message}</p>}</form>;
+}
+
 function OwnerDashboard({
   session,
   onSignedOut,
@@ -607,6 +620,8 @@ function OwnerDashboard({
           </div>
         </section>
       </div>
+
+      <section className="mt-6 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant administrators</p><h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em]">Owner-controlled password resets.</h2><p className="mt-3 text-sm text-[hsl(var(--muted-foreground))]">Set a temporary tenant-local administrator password, then share it only through an approved channel.</p><div className="mt-6 space-y-5">{snapshot?.tenants.map((tenant) => <AdministratorReset key={tenant.id} tenant={tenant} />)}</div></section>
 
       <section className="mt-6 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8">
         <div className="flex items-center justify-between gap-4">

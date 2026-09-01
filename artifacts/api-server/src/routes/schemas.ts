@@ -65,3 +65,8 @@ export const OwnerTenantModuleParams = z.object({
 export const OwnerToggleBody = z.object({
   active: z.boolean(),
 });
+
+export const ResetTenantAdministratorPasswordBody = z.object({
+  username: z.string().trim().min(1).max(255),
+  temporaryPassword: z.string().min(12).max(255),
+});
