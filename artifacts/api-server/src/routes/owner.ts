@@ -1,7 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { parseTenantSubdomain } from "../tenancy/subdomain";
 import { getSessionSecret } from "../auth/session";
+import { createMasterDatabase } from "../db/knex";
+import { listAuditEntries, listOwnerTenants, recordOwnerAudit } from "../owner/control-plane";
 import {
   clearOwnerSessionCookie,
   createOwnerSession,
@@ -22,6 +24,15 @@ router.use((req, res, next) => {
   next();
 });
 
+function requireOwner(req: Request, res: Response): string | null {
+  const session = ownerSessionFromRequest(req.headers.cookie, getSessionSecret());
+  if (!session) {
+    res.status(401).json({ error: "authentication_required" });
+    return null;
+  }
+  return session.username;
+}
+
 function sameValue(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -39,6 +50,21 @@ router.post("/owner/login", (req, res) => {
   const token = createOwnerSession(credentials.username, getSessionSecret());
   res.setHeader("Set-Cookie", ownerSessionCookie(token, isSecure(req)));
   res.json({ username: credentials.username });
+});
+
+router.get("/owner/control-plane", async (req, res, next) => {
+  const username = requireOwner(req, res);
+  if (!username) return;
+  const database = createMasterDatabase();
+  try {
+    const [tenants, audit] = await Promise.all([listOwnerTenants(database), listAuditEntries(database)]);
+    await recordOwnerAudit(database, { actorUsername: username, action: "owner.control_plane.viewed" });
+    res.json({ tenants, audit });
+  } catch (error) {
+    next(error);
+  } finally {
+    await database.destroy();
+  }
 });
 
 router.get("/owner/me", (req, res) => {
