@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { LocalAccountRole } from "./roles";
 
 export const SESSION_COOKIE_NAME = "bisby_session";
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
@@ -6,7 +7,7 @@ export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 export interface LocalSession {
   readonly accountId: string;
   readonly tenantId: string;
-  readonly role: "staff" | "client";
+  readonly role: LocalAccountRole | "staff";
   readonly expiresAt: number;
 }
 
@@ -73,7 +74,7 @@ export function verifySessionToken(
     if (
       typeof session.accountId !== "string" ||
       typeof session.tenantId !== "string" ||
-      (session.role !== "staff" && session.role !== "client") ||
+      !["tenant_admin", "module_admin", "module_staff", "client", "staff"].includes(session.role) ||
       !Number.isInteger(session.expiresAt) ||
       session.expiresAt <= now
     ) {

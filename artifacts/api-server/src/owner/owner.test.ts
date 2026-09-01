@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  ChangePasswordBody,
   OwnerTenantAdministratorCreateBody,
   OwnerTenantAdministratorParams,
   OwnerTenantIdParams,
@@ -10,6 +11,7 @@ import {
   ProvisionTenantBody,
 } from "../routes/schemas";
 import { isRootHost } from "./auth";
+import { resolveSsl } from "../db/knex";
 import {
   createOwnerSessionToken,
   verifyOwnerSessionToken,
@@ -45,13 +47,21 @@ test("accepts owner routes only on root production hosts", () => {
   }
 });
 
+test("honors PostgreSQL SSL verification modes", () => {
+  assert.equal(resolveSsl("disable"), false);
+  assert.deepEqual(resolveSsl("require"), { rejectUnauthorized: false });
+  assert.deepEqual(resolveSsl("verify-ca"), { rejectUnauthorized: true });
+  assert.deepEqual(resolveSsl("verify-full"), { rejectUnauthorized: true });
+  assert.throws(() => resolveSsl("prefer"), /PGSSLMODE/);
+});
+
 test("validates tenant and physical database provisioning input", () => {
   const valid = ProvisionTenantBody.safeParse({
     subdomain: "northwind-health",
     displayName: "Northwind Health",
     databaseName: "bisby_northwind_health",
     adminUsername: "admin",
-    adminPassword: "long-temporary-password",
+    adminPassword: "temporarypassword",
   });
   assert.equal(valid.success, true);
 
@@ -61,7 +71,7 @@ test("validates tenant and physical database provisioning input", () => {
       displayName: "Reserved",
       databaseName: "bisby_reserved",
       adminUsername: "admin",
-      adminPassword: "long-temporary-password",
+      adminPassword: "temporarypassword",
     }).success,
     false,
   );
@@ -100,25 +110,28 @@ test("validates owner lifecycle mutation inputs", () => {
   assert.equal(OwnerTenantIdParams.safeParse({ tenantId: "not-a-uuid" }).success, false);
 });
 
-test("validates tenant administrator password reset input", () => {
+test("validates tenant administrator credential reset input", () => {
   assert.equal(
     OwnerTenantAdministratorResetBody.safeParse({
-      username: "admin",
-      temporaryPassword: "temporary-password",
+      currentUsername: "admin",
+      newUsername: "tenant-owner",
+      temporaryPassword: "temporarypassword",
     }).success,
     true,
   );
   assert.equal(
     OwnerTenantAdministratorResetBody.safeParse({
-      username: "admin",
+      currentUsername: "admin",
+      newUsername: "tenant-owner",
       temporaryPassword: "short",
     }).success,
     false,
   );
   assert.equal(
     OwnerTenantAdministratorResetBody.safeParse({
-      username: "admin",
-      temporaryPassword: "temporary-password",
+      currentUsername: "admin",
+      newUsername: "tenant-owner",
+      temporaryPassword: "temporarypassword",
       passwordHash: "should-not-be-accepted",
     }).success,
     false,
@@ -130,7 +143,7 @@ test("validates tenant administrator creation input", () => {
     OwnerTenantAdministratorCreateBody.safeParse({
       username: "ops-admin",
       displayName: "Operations Administrator",
-      temporaryPassword: "temporary-password",
+      temporaryPassword: "temporarypassword",
     }).success,
     true,
   );
@@ -146,10 +159,41 @@ test("validates tenant administrator creation input", () => {
     OwnerTenantAdministratorCreateBody.safeParse({
       username: "ops-admin",
       displayName: "Operations Administrator",
-      temporaryPassword: "temporary-password",
+      temporaryPassword: "temporarypassword",
       accountType: "client",
     }).success,
     false,
+  );
+});
+
+test("accepts any password with at least eight characters", () => {
+  assert.equal(
+    ChangePasswordBody.safeParse({
+      currentPassword: "existing",
+      newPassword: "eightabc",
+    }).success,
+    true,
+  );
+  assert.equal(
+    ChangePasswordBody.safeParse({
+      currentPassword: "existing",
+      newPassword: "short",
+    }).success,
+    false,
+  );
+  assert.equal(
+    ChangePasswordBody.safeParse({
+      currentPassword: "existing",
+      newPassword: "eight123",
+    }).success,
+    true,
+  );
+  assert.equal(
+    ChangePasswordBody.safeParse({
+      currentPassword: "existing",
+      newPassword: "eight-ab",
+    }).success,
+    true,
   );
 });
 

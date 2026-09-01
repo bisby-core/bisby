@@ -2,6 +2,10 @@ import type { Knex } from "knex";
 import * as createTenantBlueprint from "./migrations/tenant/20260829000000_create_tenant_database_blueprint";
 import * as addRouteAssignmentFields from "./migrations/tenant/20260829000001_add_route_assignment_fields";
 import * as addPasswordChangeRequirement from "./migrations/tenant/20260901020000_add_password_change_requirement";
+import * as addAdministrationRoles from "./migrations/tenant/20260901030000_add_administration_roles";
+import * as addWorkspaceControlRegistry from "./migrations/tenant/20260901040000_add_workspace_control_registry";
+import * as addPublicWorkspaceRegistries from "./migrations/tenant/20260901050000_add_public_workspace_registries";
+import * as enforceModuleWorkspaceMetadata from "./migrations/tenant/20260901060000_enforce_module_workspace_metadata";
 
 interface RuntimeMigration {
   readonly name: string;
@@ -21,6 +25,22 @@ const migrations: readonly RuntimeMigration[] = [
   {
     name: "20260901020000_add_password_change_requirement.ts",
     ...addPasswordChangeRequirement,
+  },
+  {
+    name: "20260901030000_add_administration_roles.ts",
+    ...addAdministrationRoles,
+  },
+  {
+    name: "20260901040000_add_workspace_control_registry.ts",
+    ...addWorkspaceControlRegistry,
+  },
+  {
+    name: "20260901050000_add_public_workspace_registries.ts",
+    ...addPublicWorkspaceRegistries,
+  },
+  {
+    name: "20260901060000_enforce_module_workspace_metadata.ts",
+    ...enforceModuleWorkspaceMetadata,
   },
 ];
 

@@ -80,6 +80,33 @@ The session cookie is host-only and never includes a tenant database connection
 reference. A session presented to a different resolved tenant is rejected and
 cleared.
 
+## Tenant administration hierarchy
+
+Tenant-local administration follows a strict delegation boundary:
+
+- a `tenant_admin` has complete access to every workspace in every active
+  module for that tenant;
+- a tenant administrator creates, activates, deactivates, and resets the
+  credentials of `module_admin` accounts, with each module administrator bound
+  to one active module;
+- a `module_admin` has complete access to every workspace in its assigned
+  module and cannot cross into another module;
+- a module administrator creates and manages that module's `module_staff` and
+  `client` accounts, including first passwords, password resets, account
+  activation, role changes between Staff and Client, and workspace assignment;
+- Staff and Client credentials authorize only their assigned module and
+  workspaces. A tenant administrator is the only tenant-local role whose
+  authenticated session spans all active modules.
+
+Fine-grained module access will follow the content hierarchy
+workspace → page → tab → card. Each resource created by a module must register
+itself in that hierarchy in natural display order. Module administrators will
+assign one of four access levels at each node: `active`, `sign_only`,
+`view_only`, or `not_available`. Child controls inherit the nearest explicit
+parent setting unless overridden. The module-content creation transaction must
+register the corresponding control node so new pages, tabs, and cards appear
+automatically in the module's staff access controls.
+
 Platform-owner authentication is a separate root-host boundary:
 
 - owner credentials come from `BISBY_OWNER_USERNAME` and
@@ -157,3 +184,23 @@ The catch-all entry imports the same Express app used by the local API
 workflow, so hostname parsing and database routing remain centralized. The
 wildcard domain still needs to be attached to the Vercel project and DNS must
 point to Vercel.
+
+## Replit development previews
+
+The BisBy web development workflow opens three Vite ports for direct local
+testing:
+
+- Platform Plane: `25321`
+- Design: `3001`
+- Clientalpha: `3002`
+
+Each tenant preview proxies `/api` server-side with fixed `Host` and
+`X-Forwarded-Host` values for its plane. Conflicting browser-supplied forwarded
+host headers are replaced before the request reaches Express. The API still
+resolves the physical tenant database from `req.hostname`; the browser cannot
+submit a database name or connection override. In the path-routed development
+artifact, the Platform preview menu uses `?plane=design` and
+`?plane=clientalpha`. Tenant pages send API requests through explicit
+development-only prefixes; the Vite proxy removes the prefix and applies the
+corresponding fixed tenant hostname before forwarding the API request.
+Production builds do not enable this development proxy.

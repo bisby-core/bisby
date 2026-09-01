@@ -1,11 +1,9 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "strict": false,
-    "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "typeRoots": ["./artifacts/api-server/node_modules/@types"],
+    "types": ["node"]
   },
-  "include": ["[...path].ts"]
+  "include": ["api/**/*.ts"]
 }

@@ -2,4 +2,8 @@
 - [Migration entrypoint boundaries](migration-entrypoint-boundaries.md) — reusable migration helpers must not execute DDL when imported by provisioning or tests.
 - [GitHub push authentication](github-push-auth.md) — use a temporary secret-expanded remote for manual pushes, verify the ref, then restore the credential-free origin URL.
 - [Supabase physical database provisioning](supabase-physical-database-provisioning.md) — create databases through direct node-pg statements; keep `search_path` separate from plain database names.
-- [Owner password reset reconciliation](owner-password-reset-reconciliation.md) — resolve audit writes as recorded, absent, or unknown before compensating a tenant password reset.
+- [Owner credential reset reconciliation](owner-password-reset-reconciliation.md) — resolve audit writes as recorded, absent, or unknown before compensating tenant credential changes.
+- [Path-routed tenant previews](path-routed-tenant-previews.md) — use explicit dev-only API prefixes mapped to fixed tenant hosts; do not infer the plane from referrers.
+- [Workspace content inheritance](workspace-content-inheritance.md) — page and tab restrictions constrain descendant cards; child controls cannot broaden a parent boundary.
+- [Public workspace placement](public-workspace-placement.md) — tenant portals show tenant entries only; module public entries belong exclusively on their own module surface.
+- [Managed PostgreSQL TLS](managed-postgres-tls.md) — the current self-signed managed pooler requires documented unverified TLS unless a trusted project CA is supplied.

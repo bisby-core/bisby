@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: routing
     description: Tenant route authorization operations
+  - name: administration
+    description: Tenant-local role and account administration
 paths:
   /healthz:
     get:
@@ -164,6 +166,467 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /access/{moduleKey}/{workspaceKey}/content/{nodeType}/{nodeKey}:
+    get:
+      operationId: getContentAccess
+      tags: [routing]
+      summary: Resolve effective access to a page, tab, or card
+      parameters:
+        - name: moduleKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ModuleKey"
+        - name: workspaceKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/WorkspaceKey"
+        - name: nodeType
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/WorkspaceContentNodeType"
+        - name: nodeKey
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9](?:[a-z0-9-]{0,126})$"
+      responses:
+        "200":
+          description: Effective content access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentAccess"
+        "401":
+          description: Authentication is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The workspace or content is not available to this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The workspace or content target does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/workspaces:
+    get:
+      operationId: getModuleWorkspaceControl
+      tags: [administration]
+      summary: List the current module administrator's workspaces and content controls
+      responses:
+        "200":
+          description: Module workspace control snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceControlSnapshot"
+        "401":
+          description: Authentication is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: An active module administrator is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createModuleWorkspace
+      tags: [administration]
+      summary: Add a workspace to the current module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModuleWorkspaceCreateRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedModuleWorkspace"
+  /admin/tenant-workspaces:
+    get:
+      operationId: getTenantWorkspaces
+      tags: [administration]
+      responses:
+        "200":
+          description: Tenant-wide workspaces
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" }
+    post:
+      operationId: createTenantWorkspace
+      tags: [administration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceMetadataRequest" }
+      responses:
+        "201":
+          description: Tenant workspace created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" }
+  /admin/tenant-workspaces/{workspaceKey}:
+    patch:
+      operationId: updateTenantWorkspace
+      tags: [administration]
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/TenantWorkspaceKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceMetadataRequest" }
+      responses:
+        "200":
+          description: Tenant workspace updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" }
+    delete:
+      operationId: removeTenantWorkspace
+      tags: [administration]
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/TenantWorkspaceKey" }
+      responses:
+        "200":
+          description: Tenant workspace removed
+  /admin/tenant-workspaces/{workspaceKey}/access:
+    put:
+      operationId: updateTenantWorkspaceAccess
+      tags: [administration]
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/TenantWorkspaceKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceAccessRequest" }
+      responses:
+        "200":
+          description: Tenant workspace access controls updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" }
+  /admin/workspaces/{workspaceKey}/metadata:
+    patch:
+      operationId: updateModuleWorkspaceMetadata
+      tags: [administration]
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/WorkspaceKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceMetadataRequest" }
+      responses:
+        "200":
+          description: Module workspace updated
+  /public/workspaces:
+    get:
+      operationId: getPublicTenantWorkspaces
+      tags: [routing]
+      responses:
+        "200":
+          description: Active public tenant and module workspaces
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicWorkspaceList" }
+        "400":
+          description: Invalid workspace data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: An active module administrator is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/workspaces/{workspaceKey}:
+    delete:
+      operationId: removeModuleWorkspace
+      tags: [administration]
+      summary: Remove a workspace and its Staff and Client assignments
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/WorkspaceKey"
+      responses:
+        "200":
+          description: Workspace removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleWorkspaceRemovedResponse"
+        "403":
+          description: An active module administrator is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/workspaces/{workspaceKey}/access:
+    put:
+      operationId: updateModuleWorkspaceAccess
+      tags: [administration]
+      summary: Replace page, tab, and card access levels for a workspace
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/WorkspaceKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModuleWorkspaceAccessRequest"
+      responses:
+        "200":
+          description: Workspace access controls updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedModuleWorkspace"
+        "400":
+          description: Invalid access controls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: An active module administrator is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Workspace or content control not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/users:
+    get:
+      operationId: getTenantAdministration
+      tags: [administration]
+      summary: Get the current tenant administration scope and managed accounts
+      responses:
+        "200":
+          description: Tenant-local administration snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAdministrationSnapshot"
+        "401":
+          description: Authentication is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The account has no administration scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "428":
+          description: A permanent password must be set first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createManagedTenantAccount
+      tags: [administration]
+      summary: Create a module administrator, staff, or client account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManagedTenantAccountCreateRequest"
+      responses:
+        "201":
+          description: Managed account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedTenantAccount"
+        "400":
+          description: Invalid role or assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The account cannot manage the requested role or module
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: The username is already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/users/{accountId}:
+    patch:
+      operationId: updateManagedTenantAccountStatus
+      tags: [administration]
+      summary: Activate or deactivate a managed tenant account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManagedTenantAccountStatusRequest"
+      responses:
+        "200":
+          description: Managed account status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedTenantAccountStatusResponse"
+        "403":
+          description: The account cannot manage the target account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The managed account does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/users/{accountId}/access:
+    patch:
+      operationId: updateManagedTenantAccountAccess
+      tags: [administration]
+      summary: Change a staff or client role and workspace access
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManagedTenantAccountAccessRequest"
+      responses:
+        "200":
+          description: Managed account access updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedTenantAccount"
+        "400":
+          description: Invalid role or workspace assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The account cannot manage the target account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The managed account does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/users/{accountId}/reset-password:
+    post:
+      operationId: resetManagedTenantAccountPassword
+      tags: [administration]
+      summary: Set a temporary password on an active managed tenant account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManagedTenantAccountPasswordResetRequest"
+      responses:
+        "200":
+          description: Temporary password set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedTenantAccountPasswordResetResponse"
+        "403":
+          description: The account cannot manage the target account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The active managed account does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     LoginRequest:
@@ -187,17 +650,32 @@ components:
           type: string
         tenantId:
           type: string
+        username:
+          type: string
         role:
           type: string
           enum:
-            - staff
+            - tenant_admin
+            - module_admin
+            - module_staff
             - client
+        moduleKey:
+          oneOf:
+            - $ref: "#/components/schemas/ModuleKey"
+            - type: "null"
+        workspaceKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceKey"
         requiresPasswordChange:
           type: boolean
       required:
         - accountId
         - tenantId
+        - username
         - role
+        - moduleKey
+        - workspaceKeys
         - requiresPasswordChange
     ChangePasswordRequest:
       type: object
@@ -255,7 +733,7 @@ components:
         - module_h
     WorkspaceKey:
       type: string
-      pattern: "^ws-(?:[1-9]|10)$"
+      pattern: "^ws-[1-9][0-9]*$"
     RouteAccess:
       type: object
       properties:
@@ -275,6 +753,443 @@ components:
         - subdomain
         - moduleKey
         - workspaceKey
+    ManagedTenantAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+          enum:
+            - module_admin
+            - module_staff
+            - client
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceKey"
+        isActive:
+          type: boolean
+        requiresPasswordChange:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - displayName
+        - role
+        - moduleKey
+        - workspaceKeys
+        - isActive
+        - requiresPasswordChange
+        - createdAt
+    TenantAdministrationCurrentUser:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum:
+            - tenant_admin
+            - module_admin
+        moduleKey:
+          oneOf:
+            - $ref: "#/components/schemas/ModuleKey"
+            - type: "null"
+      required:
+        - accountId
+        - username
+        - role
+        - moduleKey
+    TenantAdministrationSnapshot:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        subdomain:
+          type: string
+        enabledModules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleKey"
+        currentUser:
+          $ref: "#/components/schemas/TenantAdministrationCurrentUser"
+        workspaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedWorkspaceOption"
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedTenantAccount"
+      required:
+        - tenantId
+        - subdomain
+        - enabledModules
+        - currentUser
+        - workspaces
+        - users
+    ManagedWorkspaceOption:
+      type: object
+      properties:
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKey:
+          $ref: "#/components/schemas/WorkspaceKey"
+        displayName:
+          type: string
+      required:
+        - moduleKey
+        - workspaceKey
+        - displayName
+    ManagedTenantAccountCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 255
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        role:
+          type: string
+          enum:
+            - module_admin
+            - module_staff
+            - client
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceKey"
+        temporaryPassword:
+          type: string
+          minLength: 12
+          maxLength: 255
+      required:
+        - username
+        - displayName
+        - role
+        - moduleKey
+        - workspaceKeys
+        - temporaryPassword
+    ManagedTenantAccountAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          enum:
+            - module_staff
+            - client
+        workspaceKeys:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/WorkspaceKey"
+      required:
+        - role
+        - workspaceKeys
+    WorkspaceAccessLevel:
+      type: string
+      enum:
+        - active
+        - sign_only
+        - view_only
+        - not_available
+    WorkspaceContentNodeType:
+      type: string
+      enum:
+        - page
+        - tab
+        - card
+    ContentAccess:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKey:
+          $ref: "#/components/schemas/WorkspaceKey"
+        nodeType:
+          $ref: "#/components/schemas/WorkspaceContentNodeType"
+        nodeKey:
+          type: string
+        accessLevel:
+          $ref: "#/components/schemas/WorkspaceAccessLevel"
+        canView:
+          type: boolean
+        canSign:
+          type: boolean
+        canEdit:
+          type: boolean
+      required:
+        - allowed
+        - moduleKey
+        - workspaceKey
+        - nodeType
+        - nodeKey
+        - accessLevel
+        - canView
+        - canSign
+        - canEdit
+    WorkspaceContentNode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        parentId:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        type:
+          $ref: "#/components/schemas/WorkspaceContentNodeType"
+        key:
+          type: string
+        displayName:
+          type: string
+        sortOrder:
+          type: integer
+        accessLevel:
+          $ref: "#/components/schemas/WorkspaceAccessLevel"
+      required:
+        - id
+        - parentId
+        - type
+        - key
+        - displayName
+        - sortOrder
+        - accessLevel
+    ManagedModuleWorkspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaceKey:
+          $ref: "#/components/schemas/WorkspaceKey"
+        displayName:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        workspaceType:
+          $ref: "#/components/schemas/WorkspaceType"
+        publicVisible:
+          type: boolean
+        contactEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        contentNodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceContentNode"
+      required:
+        - id
+        - moduleKey
+        - workspaceKey
+        - displayName
+        - sortOrder
+        - isActive
+        - workspaceType
+        - publicVisible
+        - contactEnabled
+        - createdAt
+        - contentNodes
+    WorkspaceControlSnapshot:
+      type: object
+      properties:
+        moduleKey:
+          $ref: "#/components/schemas/ModuleKey"
+        workspaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedModuleWorkspace"
+      required:
+        - moduleKey
+        - workspaces
+    ModuleWorkspaceCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+        - displayName
+    ModuleWorkspaceAccessControl:
+      type: object
+      additionalProperties: false
+      properties:
+        nodeId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: "#/components/schemas/WorkspaceAccessLevel"
+      required:
+        - nodeId
+        - accessLevel
+    ModuleWorkspaceAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        controls:
+          type: array
+          minItems: 1
+          maxItems: 250
+          items:
+            $ref: "#/components/schemas/ModuleWorkspaceAccessControl"
+      required:
+        - controls
+    ModuleWorkspaceRemovedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - workspace_removed
+        workspaceKey:
+          $ref: "#/components/schemas/WorkspaceKey"
+      required:
+        - status
+        - workspaceKey
+    ManagedTenantAccountStatusRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        active:
+          type: boolean
+      required:
+        - active
+    ManagedTenantAccountStatusResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        active:
+          type: boolean
+      required:
+        - accountId
+        - active
+    ManagedTenantAccountPasswordResetRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        temporaryPassword:
+          type: string
+          minLength: 12
+          maxLength: 255
+      required:
+        - temporaryPassword
+    ManagedTenantAccountPasswordResetResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - password_reset
+        accountId:
+          type: string
+          format: uuid
+      required:
+        - status
+        - accountId
+    TenantWorkspaceKey:
+      type: string
+      pattern: "^tws-[1-9][0-9]*$"
+    WorkspaceType:
+      type: string
+      enum: [normal, public_information, contact_us]
+    WorkspaceMetadataRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        isActive: { type: boolean }
+        workspaceType: { $ref: "#/components/schemas/WorkspaceType" }
+        publicVisible: { type: boolean }
+        contactEnabled: { type: boolean }
+      required: [displayName, isActive, workspaceType, publicVisible, contactEnabled]
+    WorkspaceAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        controls:
+          type: array
+          minItems: 1
+          maxItems: 250
+          items: { $ref: "#/components/schemas/ModuleWorkspaceAccessControl" }
+      required: [controls]
+    ManagedRegistryWorkspace:
+      type: object
+      properties:
+        scope: { type: string, enum: [tenant, platform] }
+        workspaceKey: { type: string }
+        displayName: { type: string }
+        workspaceType: { $ref: "#/components/schemas/WorkspaceType" }
+        isActive: { type: boolean }
+        publicVisible: { type: boolean }
+        contactEnabled: { type: boolean }
+        contentNodes:
+          type: array
+          items: { $ref: "#/components/schemas/WorkspaceContentNode" }
+      required: [scope, workspaceKey, displayName, workspaceType, isActive, publicVisible, contactEnabled, contentNodes]
+    ManagedRegistryWorkspaceList:
+      type: object
+      properties:
+        workspaces:
+          type: array
+          items: { $ref: "#/components/schemas/ManagedRegistryWorkspace" }
+      required: [workspaces]
+    PublicWorkspace:
+      type: object
+      properties:
+        scope: { type: string, enum: [tenant, module, platform] }
+        moduleKey:
+          oneOf:
+            - $ref: "#/components/schemas/ModuleKey"
+            - type: "null"
+        workspaceKey: { type: string }
+        displayName: { type: string }
+        workspaceType: { $ref: "#/components/schemas/WorkspaceType" }
+        isActive: { type: boolean }
+        publicVisible: { type: boolean }
+        contactEnabled: { type: boolean }
+      required: [scope, moduleKey, workspaceKey, displayName, workspaceType, isActive, publicVisible, contactEnabled]
+    PublicWorkspaceList:
+      type: object
+      properties:
+        workspaces:
+          type: array
+          items: { $ref: "#/components/schemas/PublicWorkspace" }
+      required: [workspaces]
     ApiError:
       type: object
       properties:

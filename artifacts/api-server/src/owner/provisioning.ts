@@ -6,15 +6,10 @@ import {
   postgresConnectionConfig,
 } from "../db/knex";
 import { tenantRuntimeMigrationConfig } from "../db/tenant-runtime-migrations";
-import {
-  MODULE_SCHEMA_NAMES,
-  type ModuleSchemaName,
-} from "../modules/module-schemas";
+import { MODULE_SCHEMA_NAMES, type ModuleSchemaName } from "../modules/module-schemas";
 import { recordPlatformAudit } from "./control-plane";
 
-const WORKSPACE_KEYS = Array.from({ length: 10 }, (_, index) => `ws-${index + 1}`);
-const ADMIN_ACCOUNT_TYPE = "staff";
-const ADMIN_PERMISSION_TAB = "workspace_access";
+const ADMIN_ACCOUNT_TYPE = "tenant_admin";
 
 export interface ProvisionTenantInput {
   readonly subdomain: string;
@@ -156,6 +151,7 @@ async function migrateAndSeedTenant(
         display_name: input.displayName,
         password_hash: passwordHash,
         account_type: ADMIN_ACCOUNT_TYPE,
+        module_key: null,
         is_active: true,
          must_change_password: true,
       });
@@ -168,18 +164,6 @@ async function migrateAndSeedTenant(
         throw new Error("The initial administrator account could not be created.");
       }
 
-      await transaction("core_admin.tab_permissions").insert(
-        MODULE_SCHEMA_NAMES.flatMap((moduleSchema) =>
-          WORKSPACE_KEYS.map((workspaceKey) => ({
-            client_account_id: account.id,
-            module_schema: moduleSchema,
-            workspace_key: workspaceKey,
-            tab_key: ADMIN_PERMISSION_TAB,
-            can_view: true,
-            can_edit: true,
-          })),
-        ),
-      );
     });
   } finally {
     await tenantDatabase.destroy();

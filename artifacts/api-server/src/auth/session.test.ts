@@ -36,3 +36,15 @@ test("rejects tampered, expired, and cross-tenant sessions", () => {
   assert.notEqual(verified, null);
   assert.notEqual(verified?.tenantId, SESSION.tenantId);
 });
+
+test("accepts every tenant-local administration role", () => {
+  for (const role of [
+    "tenant_admin",
+    "module_admin",
+    "module_staff",
+    "client",
+  ] as const) {
+    const token = createSessionToken({ ...SESSION, role }, SECRET, 1_000);
+    assert.equal(verifySessionToken(token, SECRET, 1_001)?.role, role);
+  }
+});

@@ -8,6 +8,9 @@ import {
   OwnerTenantAdministratorResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
+  WorkspaceMetadataBody,
+  OwnerWorkspaceParams,
+  WorkspaceAccessBody,
 } from "./schemas";
 import {
   clearOwnerSessionCookie,
@@ -30,12 +33,13 @@ import { provisionTenant, TenantProvisioningError } from "../owner/provisioning"
 import {
   listTenantAdministrators,
   createTenantAdministrator,
-  resetTenantAdministratorPassword,
+  resetTenantAdministratorCredentials,
   TenantAdministratorError,
   updateTenantAdministratorStatus,
 } from "../owner/tenant-administrators";
 import { timingSafeEqual } from "node:crypto";
 import type { Knex } from "knex";
+import { createPlatformWorkspace, listPlatformWorkspaces, removePlatformWorkspace, updatePlatformWorkspace, updatePlatformWorkspaceAccess } from "../owner/workspaces";
 
 function configuredOwnerCredential(name: "BISBY_OWNER_USERNAME" | "BISBY_OWNER_PASSWORD"): string {
   const value = process.env[name];
@@ -129,6 +133,37 @@ function ownerRouter(
   router.get("/me", (req, res) => {
     if (!requireOwnerSession(req, res)) return;
     res.json({ authenticated: true, username: req.ownerUsername });
+  });
+  router.get("/public/workspaces", async (_req, res, next) => {
+    try { res.json(await listPlatformWorkspaces(masterDatabase, true)); } catch (error) { next(error); }
+  });
+  router.get("/workspaces", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    try { res.json(await listPlatformWorkspaces(masterDatabase)); } catch (error) { next(error); }
+  });
+  router.post("/workspaces", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const body = WorkspaceMetadataBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: "invalid_workspace_payload" }); return; }
+    try { const workspace = await createPlatformWorkspace(masterDatabase, body.data); await recordPlatformAudit(masterDatabase, { eventType: "owner.workspace.created", actorUsername: req.ownerUsername as string, details: { workspaceKey: workspace.workspaceKey } }); res.status(201).json(workspace); } catch (error) { next(error); }
+  });
+  router.patch("/workspaces/:workspaceKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerWorkspaceParams.safeParse(req.params); const body = WorkspaceMetadataBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_workspace_payload" }); return; }
+    try { const workspace = await updatePlatformWorkspace(masterDatabase, params.data.workspaceKey, body.data); if (!workspace) { res.status(404).json({ error: "workspace_not_found" }); return; } await recordPlatformAudit(masterDatabase, { eventType: "owner.workspace.updated", actorUsername: req.ownerUsername as string, details: { workspaceKey: workspace.workspaceKey } }); res.json(workspace); } catch (error) { next(error); }
+  });
+  router.delete("/workspaces/:workspaceKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerWorkspaceParams.safeParse(req.params);
+    if (!params.success) { res.status(404).json({ error: "workspace_not_found" }); return; }
+    try { if (!(await removePlatformWorkspace(masterDatabase, params.data.workspaceKey))) { res.status(404).json({ error: "workspace_not_found" }); return; } await recordPlatformAudit(masterDatabase, { eventType: "owner.workspace.removed", actorUsername: req.ownerUsername as string, details: { workspaceKey: params.data.workspaceKey } }); res.json({ status: "workspace_removed", workspaceKey: params.data.workspaceKey }); } catch (error) { next(error); }
+  });
+  router.put("/workspaces/:workspaceKey/access", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerWorkspaceParams.safeParse(req.params); const body = WorkspaceAccessBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_workspace_access_payload" }); return; }
+    try { const workspace = await updatePlatformWorkspaceAccess(masterDatabase, params.data.workspaceKey, body.data.controls); if (!workspace) { res.status(404).json({ error: "workspace_not_found" }); return; } await recordPlatformAudit(masterDatabase, { eventType: "owner.workspace.access_updated", actorUsername: req.ownerUsername as string, details: { workspaceKey: params.data.workspaceKey, controls: body.data.controls } }); res.json(workspace); } catch (error) { next(error); }
   });
 
   router.get("/control-plane", async (req, res, next) => {
@@ -261,17 +296,25 @@ function ownerRouter(
 
       try {
         res.json(
-          await resetTenantAdministratorPassword(
+          await resetTenantAdministratorCredentials(
             masterDatabase,
             req.ownerUsername as string,
             parsedParams.data.tenantId,
-            parsedBody.data.username,
+            parsedBody.data.currentUsername,
+            parsedBody.data.newUsername,
             parsedBody.data.temporaryPassword,
           ),
         );
       } catch (error) {
         if (error instanceof TenantAdministratorError) {
-          res.status(error.code === "tenant_not_found" || error.code === "administrator_not_found" ? 404 : 503).json({
+          const status =
+            error.code === "tenant_not_found" ||
+            error.code === "administrator_not_found"
+              ? 404
+              : error.code === "administrator_conflict"
+                ? 409
+                : 503;
+          res.status(status).json({
             error: error.code,
             message: error.message,
           });

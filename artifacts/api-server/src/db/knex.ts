@@ -19,7 +19,7 @@ export interface PostgresConnectionConfig {
   readonly host: string;
   readonly port: number;
   readonly database: string;
-  readonly ssl: false | { readonly rejectUnauthorized: false };
+  readonly ssl: false | { readonly rejectUnauthorized: boolean };
   readonly connectionTimeoutMillis: number;
 }
 
@@ -51,9 +51,9 @@ function validateDatabaseName(databaseName: string): string {
   return databaseName;
 }
 
-function resolveSsl(
+export function resolveSsl(
   value: string | undefined,
-): false | { readonly rejectUnauthorized: false } {
+): false | { readonly rejectUnauthorized: boolean } {
   const mode = value?.trim().toLowerCase() || "require";
   if (mode === "disable") {
     return false;
@@ -63,7 +63,7 @@ function resolveSsl(
     throw new Error("PGSSLMODE must be disable, require, verify-ca, or verify-full.");
   }
 
-  return { rejectUnauthorized: false };
+  return { rejectUnauthorized: mode !== "require" };
 }
 
 export function postgresConnectionConfig(

@@ -9,6 +9,10 @@ import {
   ChangePasswordBody,
   ChangePasswordResponse,
 } from "./schemas";
+import {
+  loadAccountAssignments,
+  toLocalAccountRole,
+} from "../auth/roles";
 import { hashPassword, verifyPassword } from "../auth/password";
 import {
   clearSessionCookie,
@@ -27,10 +31,7 @@ interface AccountRow {
   is_active: boolean;
   must_change_password: boolean;
   username: string;
-}
-
-function toRole(value: string): "staff" | "client" {
-  return value === "staff" ? "staff" : "client";
+  module_key: string | null;
 }
 
 async function resolveAuditState(
@@ -73,6 +74,7 @@ function authRouter(masterDatabase: Knex): IRouter {
       .select(
         "id",
         "username",
+        "module_key",
         "password_hash",
         "account_type",
         "is_active",
@@ -90,11 +92,24 @@ function authRouter(masterDatabase: Knex): IRouter {
       return;
     }
 
-    const role = toRole(account.account_type);
+    const role = toLocalAccountRole(account.account_type);
+    if (!role) {
+      res.status(401).json({ error: "invalid_credentials" });
+      return;
+    }
+    const assignments = await loadAccountAssignments(
+      req.tenantDatabase,
+      account.id,
+      account.module_key,
+    );
     req.authenticatedUser = {
       accountId: account.id,
       tenantId: req.tenantContext.tenantId,
+      username: account.username,
       role,
+      moduleKey: role === "tenant_admin" ? null : assignments.moduleKey,
+      workspaceKeys: assignments.workspaceKeys,
+      workspaceAssignments: assignments.workspaceAssignments,
       requiresPasswordChange: account.must_change_password,
     };
 
@@ -115,6 +130,9 @@ function authRouter(masterDatabase: Knex): IRouter {
         accountId: account.id,
         tenantId: req.tenantContext.tenantId,
         role,
+        username: account.username,
+        moduleKey: role === "tenant_admin" ? null : assignments.moduleKey,
+        workspaceKeys: assignments.workspaceKeys,
         requiresPasswordChange: account.must_change_password,
       }),
     );
@@ -152,7 +170,8 @@ function authRouter(masterDatabase: Knex): IRouter {
           "id",
           "username",
           "password_hash",
-          "account_type",
+           "account_type",
+           "module_key",
           "is_active",
           "must_change_password",
         )

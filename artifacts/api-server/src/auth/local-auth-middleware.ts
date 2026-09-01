@@ -10,10 +10,16 @@ import {
   SESSION_TTL_SECONDS,
   verifySessionToken,
 } from "./session";
+import {
+  loadAccountAssignments,
+  toLocalAccountRole,
+} from "./roles";
 
 interface AccountRow {
   id: string;
+  username: string;
   account_type: string;
+  module_key: string | null;
   is_active: boolean;
   must_change_password: boolean;
 }
@@ -72,10 +78,6 @@ export function clearSessionCookie(secure: boolean): string {
   ].join("; ");
 }
 
-function toRole(value: string): "staff" | "client" {
-  return value === "staff" ? "staff" : "client";
-}
-
 export function createLocalAuthMiddleware(): RequestHandler {
   return async function localAuthMiddleware(
     req: Request,
@@ -107,7 +109,7 @@ export function createLocalAuthMiddleware(): RequestHandler {
       const account = await req.tenantDatabase<AccountRow>(
         "core_admin.client_accounts",
       )
-        .select("id", "account_type", "is_active", "must_change_password")
+        .select("id", "username", "account_type", "module_key", "is_active", "must_change_password")
         .where({ id: session.accountId })
         .first();
 
@@ -120,11 +122,33 @@ export function createLocalAuthMiddleware(): RequestHandler {
         return;
       }
 
+      const role = toLocalAccountRole(account.account_type);
+      if (!role) {
+        res.setHeader(
+          "Set-Cookie",
+          clearSessionCookie(usesSecureCookie(req)),
+        );
+        next();
+        return;
+      }
+
+      const assignments = await loadAccountAssignments(
+        req.tenantDatabase,
+        account.id,
+        account.module_key,
+      );
       req.authenticatedUser = {
         accountId: account.id,
         tenantId: req.tenantContext.tenantId,
-        role: toRole(account.account_type),
-          requiresPasswordChange: account.must_change_password,
+        username: account.username,
+        role,
+        moduleKey:
+          role === "tenant_admin"
+            ? null
+            : assignments.moduleKey,
+        workspaceKeys: assignments.workspaceKeys,
+        workspaceAssignments: assignments.workspaceAssignments,
+        requiresPasswordChange: account.must_change_password,
       };
       next();
     } catch (error) {

@@ -10,6 +10,8 @@ export type AuthenticatedLocalUserRole = typeof AuthenticatedLocalUserRole[keyof
 
 
 export const AuthenticatedLocalUserRole = {
-  staff: 'staff',
+  tenant_admin: 'tenant_admin',
+  module_admin: 'module_admin',
+  module_staff: 'module_staff',
   client: 'client',
 } as const;

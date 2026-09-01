@@ -12,7 +12,7 @@ paths = [ "/" ]
 localPort = 25321
 
 [services.development]
-run = "pnpm --filter @workspace/bisby-web run dev"
+run = "pnpm --filter @workspace/bisby-web run dev:all"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/bisby-web", "run", "build" ]

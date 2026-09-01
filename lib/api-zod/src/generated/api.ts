@@ -31,10 +31,16 @@ export const LoginBody = zod.object({
   "password": zod.string().min(1).max(loginBodyPasswordMax)
 })
 
+export const loginResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
 export const LoginResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
-  "role": zod.enum(['staff', 'client']),
+  "username": zod.string(),
+  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()]),
+  "workspaceKeys": zod.array(zod.string().regex(loginResponseWorkspaceKeysItemRegExp)),
   "requiresPasswordChange": zod.boolean()
 })
 
@@ -42,10 +48,16 @@ export const LoginResponse = zod.object({
 /**
  * @summary Get the current tenant-local account
  */
+export const getCurrentUserResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
 export const GetCurrentUserResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
-  "role": zod.enum(['staff', 'client']),
+  "username": zod.string(),
+  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()]),
+  "workspaceKeys": zod.array(zod.string().regex(getCurrentUserResponseWorkspaceKeysItemRegExp)),
   "requiresPasswordChange": zod.boolean()
 })
 
@@ -83,7 +95,7 @@ export const LogoutResponse = zod.object({
  * Returns access only when the authenticated local account is assigned to the requested module and workspace.
  * @summary Check access to a tenant workspace route
  */
-export const getRouteAccessPathWorkspaceKeyRegExp = new RegExp('^ws-(?:[1-9]|10)$');
+export const getRouteAccessPathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
 
 
 export const GetRouteAccessParams = zod.object({
@@ -91,7 +103,7 @@ export const GetRouteAccessParams = zod.object({
   "workspaceKey": zod.coerce.string().regex(getRouteAccessPathWorkspaceKeyRegExp)
 })
 
-export const getRouteAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-(?:[1-9]|10)$');
+export const getRouteAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
 
 
 export const GetRouteAccessResponse = zod.object({
@@ -100,6 +112,493 @@ export const GetRouteAccessResponse = zod.object({
   "subdomain": zod.string(),
   "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
   "workspaceKey": zod.string().regex(getRouteAccessResponseWorkspaceKeyRegExp)
+})
+
+
+/**
+ * @summary Resolve effective access to a page, tab, or card
+ */
+export const getContentAccessPathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getContentAccessPathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const GetContentAccessParams = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.coerce.string().regex(getContentAccessPathWorkspaceKeyRegExp),
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(getContentAccessPathNodeKeyRegExp)
+})
+
+export const getContentAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const GetContentAccessResponse = zod.object({
+  "allowed": zod.boolean(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(getContentAccessResponseWorkspaceKeyRegExp),
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.string(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available']),
+  "canView": zod.boolean(),
+  "canSign": zod.boolean(),
+  "canEdit": zod.boolean()
+})
+
+
+/**
+ * @summary List the current module administrator's workspaces and content controls
+ */
+export const getModuleWorkspaceControlResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const GetModuleWorkspaceControlResponse = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(getModuleWorkspaceControlResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+/**
+ * @summary Add a workspace to the current module
+ */
+export const createModuleWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const CreateModuleWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(createModuleWorkspaceBodyDisplayNameMax)
+})
+
+export const createModuleWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const CreateModuleWorkspaceResponse = zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(createModuleWorkspaceResponseWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const GetTenantWorkspacesResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const createTenantWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const CreateTenantWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(createTenantWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const CreateTenantWorkspaceResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const updateTenantWorkspacePathWorkspaceKeyRegExp = new RegExp('^tws-[1-9][0-9]*$');
+
+
+export const UpdateTenantWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateTenantWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const updateTenantWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const UpdateTenantWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(updateTenantWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const UpdateTenantWorkspaceResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const removeTenantWorkspacePathWorkspaceKeyRegExp = new RegExp('^tws-[1-9][0-9]*$');
+
+
+export const RemoveTenantWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(removeTenantWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const RemoveTenantWorkspaceResponse = zod.unknown()
+
+
+export const updateTenantWorkspaceAccessPathWorkspaceKeyRegExp = new RegExp('^tws-[1-9][0-9]*$');
+
+
+export const UpdateTenantWorkspaceAccessParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateTenantWorkspaceAccessPathWorkspaceKeyRegExp)
+})
+
+export const updateTenantWorkspaceAccessBodyControlsMax = 250;
+
+
+
+export const UpdateTenantWorkspaceAccessBody = zod.object({
+  "controls": zod.array(zod.object({
+  "nodeId": zod.uuid(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+})).min(1).max(updateTenantWorkspaceAccessBodyControlsMax)
+})
+
+export const UpdateTenantWorkspaceAccessResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const updateModuleWorkspaceMetadataPathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const UpdateModuleWorkspaceMetadataParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateModuleWorkspaceMetadataPathWorkspaceKeyRegExp)
+})
+
+export const updateModuleWorkspaceMetadataBodyDisplayNameMax = 255;
+
+
+
+export const UpdateModuleWorkspaceMetadataBody = zod.object({
+  "displayName": zod.string().min(1).max(updateModuleWorkspaceMetadataBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const UpdateModuleWorkspaceMetadataResponse = zod.unknown()
+
+
+export const GetPublicTenantWorkspacesResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'module', 'platform']),
+  "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()]),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Remove a workspace and its Staff and Client assignments
+ */
+export const removeModuleWorkspacePathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const RemoveModuleWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(removeModuleWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const removeModuleWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const RemoveModuleWorkspaceResponse = zod.object({
+  "status": zod.enum(['workspace_removed']),
+  "workspaceKey": zod.string().regex(removeModuleWorkspaceResponseWorkspaceKeyRegExp)
+})
+
+
+/**
+ * @summary Replace page, tab, and card access levels for a workspace
+ */
+export const updateModuleWorkspaceAccessPathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const UpdateModuleWorkspaceAccessParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateModuleWorkspaceAccessPathWorkspaceKeyRegExp)
+})
+
+export const updateModuleWorkspaceAccessBodyControlsMax = 250;
+
+
+
+export const UpdateModuleWorkspaceAccessBody = zod.object({
+  "controls": zod.array(zod.object({
+  "nodeId": zod.uuid(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+})).min(1).max(updateModuleWorkspaceAccessBodyControlsMax)
+})
+
+export const updateModuleWorkspaceAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const UpdateModuleWorkspaceAccessResponse = zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(updateModuleWorkspaceAccessResponseWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+/**
+ * @summary Get the current tenant administration scope and managed accounts
+ */
+export const getTenantAdministrationResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getTenantAdministrationResponseUsersItemWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const GetTenantAdministrationResponse = zod.object({
+  "tenantId": zod.string(),
+  "subdomain": zod.string(),
+  "enabledModules": zod.array(zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h'])),
+  "currentUser": zod.object({
+  "accountId": zod.uuid(),
+  "username": zod.string(),
+  "role": zod.enum(['tenant_admin', 'module_admin']),
+  "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()])
+}),
+  "workspaces": zod.array(zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(getTenantAdministrationResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string()
+})),
+  "users": zod.array(zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "role": zod.enum(['module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKeys": zod.array(zod.string().regex(getTenantAdministrationResponseUsersItemWorkspaceKeysItemRegExp)),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a module administrator, staff, or client account
+ */
+export const createManagedTenantAccountBodyUsernameMax = 255;
+
+export const createManagedTenantAccountBodyDisplayNameMax = 255;
+
+export const createManagedTenantAccountBodyWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const createManagedTenantAccountBodyTemporaryPasswordMin = 12;
+export const createManagedTenantAccountBodyTemporaryPasswordMax = 255;
+
+
+
+export const CreateManagedTenantAccountBody = zod.object({
+  "username": zod.string().min(1).max(createManagedTenantAccountBodyUsernameMax),
+  "displayName": zod.string().min(1).max(createManagedTenantAccountBodyDisplayNameMax),
+  "role": zod.enum(['module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKeys": zod.array(zod.string().regex(createManagedTenantAccountBodyWorkspaceKeysItemRegExp)),
+  "temporaryPassword": zod.string().min(createManagedTenantAccountBodyTemporaryPasswordMin).max(createManagedTenantAccountBodyTemporaryPasswordMax)
+})
+
+export const createManagedTenantAccountResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const CreateManagedTenantAccountResponse = zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "role": zod.enum(['module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKeys": zod.array(zod.string().regex(createManagedTenantAccountResponseWorkspaceKeysItemRegExp)),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Activate or deactivate a managed tenant account
+ */
+export const UpdateManagedTenantAccountStatusParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const UpdateManagedTenantAccountStatusBody = zod.object({
+  "active": zod.boolean()
+})
+
+export const UpdateManagedTenantAccountStatusResponse = zod.object({
+  "accountId": zod.uuid(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Change a staff or client role and workspace access
+ */
+export const UpdateManagedTenantAccountAccessParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const updateManagedTenantAccountAccessBodyWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+
+export const UpdateManagedTenantAccountAccessBody = zod.object({
+  "role": zod.enum(['module_staff', 'client']),
+  "workspaceKeys": zod.array(zod.string().regex(updateManagedTenantAccountAccessBodyWorkspaceKeysItemRegExp)).min(1)
+})
+
+export const updateManagedTenantAccountAccessResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const UpdateManagedTenantAccountAccessResponse = zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "role": zod.enum(['module_admin', 'module_staff', 'client']),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKeys": zod.array(zod.string().regex(updateManagedTenantAccountAccessResponseWorkspaceKeysItemRegExp)),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set a temporary password on an active managed tenant account
+ */
+export const ResetManagedTenantAccountPasswordParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const resetManagedTenantAccountPasswordBodyTemporaryPasswordMin = 12;
+export const resetManagedTenantAccountPasswordBodyTemporaryPasswordMax = 255;
+
+
+
+export const ResetManagedTenantAccountPasswordBody = zod.object({
+  "temporaryPassword": zod.string().min(resetManagedTenantAccountPasswordBodyTemporaryPasswordMin).max(resetManagedTenantAccountPasswordBodyTemporaryPasswordMax)
+})
+
+export const ResetManagedTenantAccountPasswordResponse = zod.object({
+  "status": zod.enum(['password_reset']),
+  "accountId": zod.uuid()
 })
 
 

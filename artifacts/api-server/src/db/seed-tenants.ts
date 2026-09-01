@@ -99,14 +99,16 @@ async function seedTenantDatabase(
         username: ADMIN_USERNAME,
         display_name: ADMIN_DISPLAY_NAME,
         password_hash: passwordHash,
-        account_type: "staff",
+        account_type: "tenant_admin",
+        module_key: null,
         is_active: true,
       })
       .onConflict("username")
       .merge({
         display_name: ADMIN_DISPLAY_NAME,
         password_hash: passwordHash,
-        account_type: "staff",
+        account_type: "tenant_admin",
+        module_key: null,
         is_active: true,
         updated_at: transaction.fn.now(),
       });
@@ -268,4 +270,7 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+void main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -7,6 +7,6 @@
  */
 
 /**
- * @pattern ^ws-(?:[1-9]|10)$
+ * @pattern ^ws-[1-9][0-9]*$
  */
 export type WorkspaceKey = string;

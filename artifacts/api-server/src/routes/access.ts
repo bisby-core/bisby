@@ -1,9 +1,16 @@
 import { Router, type IRouter } from "express";
 import {
+  GetContentAccessParams,
+  GetContentAccessResponse,
   GetRouteAccessParams,
   GetRouteAccessResponse,
 } from "./schemas";
 import type { AuthenticatedLocalUser } from "../tenancy/express";
+import { canAccessWorkspace } from "../auth/roles";
+import {
+  resolveWorkspaceContentAccess,
+  workspaceExists,
+} from "../tenant-administration/workspaces";
 
 const router: IRouter = Router();
 
@@ -38,24 +45,25 @@ router.get("/access/:moduleKey/:workspaceKey", async (req, res, next) => {
 
   const { moduleKey, workspaceKey } = parsedParams.data;
 
-  if (!req.tenantContext.enabledModules.includes(moduleKey)) {
-    res.status(403).json({ error: "module_not_assigned" });
-    return;
-  }
-
   try {
-    const permission = await req.tenantDatabase("core_admin.tab_permissions")
-      .select("id")
-      .where({
-        client_account_id: req.authenticatedUser.accountId,
-        module_schema: moduleKey,
-        workspace_key: workspaceKey,
-        can_view: true,
-      })
-      .first();
+    if (!(await workspaceExists(req.tenantDatabase, moduleKey, workspaceKey))) {
+      res.status(404).json({ error: "route_target_not_found" });
+      return;
+    }
+    const allowed = canAccessWorkspace(
+      req.authenticatedUser.role,
+      req.authenticatedUser.moduleKey,
+      req.authenticatedUser.workspaceAssignments,
+      req.tenantContext.enabledModules,
+      moduleKey,
+      workspaceKey,
+    );
 
-    if (!permission) {
-      res.status(403).json({ error: "workspace_not_assigned" });
+    if (!allowed) {
+      const moduleAssigned = req.tenantContext.enabledModules.includes(moduleKey);
+      res.status(403).json({
+        error: moduleAssigned ? "workspace_not_assigned" : "module_not_assigned",
+      });
       return;
     }
 
@@ -72,5 +80,75 @@ router.get("/access/:moduleKey/:workspaceKey", async (req, res, next) => {
     next(error);
   }
 });
+
+router.get(
+  "/access/:moduleKey/:workspaceKey/content/:nodeType/:nodeKey",
+  async (req, res, next) => {
+    const parsedParams = GetContentAccessParams.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(404).json({ error: "content_target_not_found" });
+      return;
+    }
+    if (!isAuthenticated(req.authenticatedUser)) {
+      res.status(401).json({ error: "authentication_required" });
+      return;
+    }
+    if (req.authenticatedUser.requiresPasswordChange) {
+      res.status(428).json({ error: "password_change_required" });
+      return;
+    }
+    if (!req.tenantContext || !req.tenantDatabase) {
+      res.status(500).json({ error: "tenant_context_unavailable" });
+      return;
+    }
+
+    const { moduleKey, workspaceKey, nodeType, nodeKey } = parsedParams.data;
+    try {
+      const workspaceAllowed = canAccessWorkspace(
+        req.authenticatedUser.role,
+        req.authenticatedUser.moduleKey,
+        req.authenticatedUser.workspaceAssignments,
+        req.tenantContext.enabledModules,
+        moduleKey,
+        workspaceKey,
+      );
+      if (!workspaceAllowed) {
+        res.status(403).json({ error: "workspace_not_assigned" });
+        return;
+      }
+      const accessLevel = await resolveWorkspaceContentAccess(
+        req.tenantDatabase,
+        req.authenticatedUser,
+        moduleKey,
+        workspaceKey,
+        nodeType,
+        nodeKey,
+      );
+      if (!accessLevel) {
+        res.status(404).json({ error: "content_target_not_found" });
+        return;
+      }
+      if (accessLevel === "not_available") {
+        res.status(403).json({ error: "content_not_available" });
+        return;
+      }
+      res.json(
+        GetContentAccessResponse.parse({
+          allowed: true,
+          moduleKey,
+          workspaceKey,
+          nodeType,
+          nodeKey,
+          accessLevel,
+          canView: true,
+          canSign: accessLevel === "active" || accessLevel === "sign_only",
+          canEdit: accessLevel === "active",
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 export default router;

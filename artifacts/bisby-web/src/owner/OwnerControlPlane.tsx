@@ -1,4 +1,7 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { WorkspaceControlUI, type UnifiedWorkspace } from '@/admin/WorkspaceControlUI';
+import { ArrowUpRight } from 'lucide-react';
+import { WorkspaceMetadataRequest, WorkspaceAccessLevel } from '@workspace/api-client-react';
 import {
   Activity,
   Building2,
@@ -14,6 +17,10 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+
+interface OwnerWorkspaceList {
+  workspaces: UnifiedWorkspace[];
+}
 interface OwnerSession {
   readonly authenticated: true;
   readonly username: string;
@@ -66,7 +73,8 @@ interface TenantAdministratorsSnapshot {
 }
 
 interface AdministratorResetForm {
-  username: string;
+  currentUsername: string;
+  newUsername: string;
   temporaryPassword: string;
 }
 
@@ -164,6 +172,38 @@ function OwnerFrame({
           </div>
         </div>
       </header>
+      {import.meta.env.DEV && (
+        <div
+          className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card)/.42)] px-5 py-3 md:px-10"
+          aria-label="Development preview ports"
+        >
+          <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-5 gap-y-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">
+              Preview domain menu
+            </span>
+            <span
+              className="font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--foreground))] underline decoration-[hsl(var(--secondary))] underline-offset-4 transition-colors hover:text-[hsl(var(--secondary-foreground))]"
+              data-testid="development-platform-port"
+            >
+              Platform · 25321
+            </span>
+            <a
+              href="/?plane=design"
+              className="font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))] underline decoration-[hsl(var(--secondary))] underline-offset-4 transition-colors hover:text-[hsl(var(--foreground))]"
+              data-testid="development-design-port"
+            >
+              Design
+            </a>
+            <a
+              href="/?plane=clientalpha"
+              className="font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))] underline decoration-[hsl(var(--secondary))] underline-offset-4 transition-colors hover:text-[hsl(var(--foreground))]"
+              data-testid="development-clientalpha-port"
+            >
+              Clientalpha
+            </a>
+          </div>
+        </div>
+      )}
       <main className="bisby-grid min-h-[calc(100dvh-73px)] px-5 py-8 md:px-10 md:py-12">
         <div className="mx-auto max-w-[1200px]">
           <div className="bisby-reveal flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">
@@ -185,6 +225,14 @@ function OwnerLogin({ onAuthenticated }: { onAuthenticated: (session: OwnerSessi
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [publicWorkspaces, setPublicWorkspaces] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/owner/public/workspaces')
+      .then(res => res.json())
+      .then(data => setPublicWorkspaces(data.workspaces || []))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -272,7 +320,26 @@ function OwnerLogin({ onAuthenticated }: { onAuthenticated: (session: OwnerSessi
             Owner sessions are accepted only on the BisBy root host. Tenant subdomains cannot reach these controls.
           </p>
         </section>
-      </div>
+
+      {publicWorkspaces.length > 0 && (
+        <div className="mt-12 border-t border-[hsl(var(--border))] pt-6">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))] mb-4">Platform Public Surfaces</p>
+          <div className="flex flex-wrap gap-2">
+            {publicWorkspaces.map(ws => (
+              <a
+                key={ws.workspaceKey}
+                href={`/public/platform/${ws.workspaceKey}`}
+                className="group flex items-center gap-2 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.6)] px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] transition-colors hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))] hover:text-[hsl(var(--primary-foreground))]"
+              >
+                {ws.displayName}
+                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+</div>
     </OwnerFrame>
   );
 }
@@ -345,7 +412,7 @@ function ProvisionTenantForm({
     { key: 'subdomain', label: 'Tenant subdomain', placeholder: 'northwind-health' },
     { key: 'databaseName', label: 'Physical database name', placeholder: 'bisby_northwind_health' },
     { key: 'adminUsername', label: 'Initial administrator', placeholder: 'admin' },
-    { key: 'adminPassword', label: 'Temporary administrator password', placeholder: 'At least 12 characters', type: 'password' },
+    { key: 'adminPassword', label: 'Temporary administrator password', placeholder: 'At least 8 characters', type: 'password' },
   ];
 
   return (
@@ -374,7 +441,7 @@ function ProvisionTenantForm({
               onChange={(event) => update(field.key, event.target.value)}
               placeholder={field.placeholder}
               autoComplete={field.key === 'adminPassword' ? 'new-password' : 'off'}
-              minLength={field.key === 'adminPassword' ? 12 : undefined}
+              minLength={field.key === 'adminPassword' ? 8 : undefined}
               required
               className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3 font-mono text-sm outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground)/.55)] focus:border-[hsl(var(--ring))]"
               data-testid={`input-provision-${field.key}`}
@@ -400,6 +467,111 @@ function ProvisionTenantForm({
         {submitting ? 'Provisioning physical database' : 'Provision tenant'}
       </button>
     </form>
+  );
+}
+
+
+function PlatformWorkspaceControl({ setError, setNotice }: { setError: (msg: string) => void, setNotice: (msg: string) => void }) {
+  const [workspaces, setWorkspaces] = useState<UnifiedWorkspace[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  const loadWorkspaces = useCallback(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    try {
+      const data = await ownerApi<OwnerWorkspaceList>('/workspaces');
+      setWorkspaces(data.workspaces);
+    } catch {
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWorkspaces();
+  }, [loadWorkspaces]);
+
+  const handleCreate = async (data: WorkspaceMetadataRequest) => {
+    setPendingAction('create');
+    setError(''); setNotice('');
+    try {
+      await ownerApi('/workspaces', { method: 'POST', body: JSON.stringify(data) });
+      setNotice(`Platform workspace "${data.displayName}" created.`);
+      await loadWorkspaces();
+    } catch (err: any) {
+      setError(err.message || 'Could not create workspace.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleUpdateMetadata = async (workspaceKey: string, data: WorkspaceMetadataRequest) => {
+    setPendingAction('update-meta');
+    setError(''); setNotice('');
+    try {
+      await ownerApi(`/workspaces/${workspaceKey}`, { method: 'PATCH', body: JSON.stringify(data) });
+      setNotice(`Platform workspace ${workspaceKey} metadata updated.`);
+      await loadWorkspaces();
+    } catch (err: any) {
+      setError(err.message || 'Could not update workspace metadata.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleUpdateAccess = async (workspaceKey: string, controls: {nodeId: string, accessLevel: WorkspaceAccessLevel}[]) => {
+    setPendingAction('update-access');
+    setError(''); setNotice('');
+    try {
+      await ownerApi(`/workspaces/${workspaceKey}/access`, { method: 'PUT', body: JSON.stringify({ controls }) });
+      setNotice(`Platform workspace ${workspaceKey} access updated.`);
+      await loadWorkspaces();
+    } catch (err: any) {
+      setError(err.message || 'Could not update workspace access.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleRemove = async (workspaceKey: string) => {
+    setPendingAction('remove');
+    setError(''); setNotice('');
+    try {
+      await ownerApi(`/workspaces/${workspaceKey}`, { method: 'DELETE' });
+      setNotice(`Platform workspace ${workspaceKey} permanently removed.`);
+      await loadWorkspaces();
+    } catch (err: any) {
+      setError(err.message || 'Could not remove workspace.');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  return (
+    <div className="mt-12">
+      <WorkspaceControlUI
+        title="Platform Workspaces"
+        description="Manage owner-session-only platform workspaces."
+        workspaces={workspaces}
+        isLoading={isLoading}
+        isError={isError}
+        createPending={pendingAction === 'create'}
+        createError={false}
+        onCreate={handleCreate}
+        updateMetadataPending={pendingAction === 'update-meta'}
+        updateMetadataError={false}
+        onUpdateMetadata={handleUpdateMetadata}
+        updateAccessPending={pendingAction === 'update-access'}
+        updateAccessError={false}
+        onUpdateAccess={handleUpdateAccess}
+        removePending={pendingAction === 'remove'}
+        removeError={false}
+        onRemove={handleRemove}
+      />
+    </div>
   );
 }
 
@@ -446,13 +618,16 @@ function OwnerDashboard({
             const activeAdministrator = tenant.administrators.find((administrator) => administrator.isActive);
             const currentForm = current[tenant.tenantId];
             const currentAdministratorIsAvailable = tenant.administrators.some(
-              (administrator) => administrator.isActive && administrator.username === currentForm?.username,
+              (administrator) => administrator.isActive && administrator.username === currentForm?.currentUsername,
             );
             return [
               tenant.tenantId,
               {
-                username: currentAdministratorIsAvailable
-                  ? currentForm?.username ?? ''
+                currentUsername: currentAdministratorIsAvailable
+                  ? currentForm?.currentUsername ?? ''
+                  : activeAdministrator?.username ?? '',
+                newUsername: currentAdministratorIsAvailable
+                  ? currentForm?.newUsername ?? currentForm?.currentUsername ?? ''
                   : activeAdministrator?.username ?? '',
                 temporaryPassword: '',
               },
@@ -558,9 +733,21 @@ function OwnerDashboard({
     setAdministratorForms((current) => ({
       ...current,
       [tenantId]: {
-        username: current[tenantId]?.username ?? '',
+        currentUsername: current[tenantId]?.currentUsername ?? '',
+        newUsername: current[tenantId]?.newUsername ?? '',
         temporaryPassword: current[tenantId]?.temporaryPassword ?? '',
         [field]: value,
+      },
+    }));
+  };
+
+  const selectAdministratorForReset = (tenantId: string, username: string) => {
+    setAdministratorForms((current) => ({
+      ...current,
+      [tenantId]: {
+        currentUsername: username,
+        newUsername: username,
+        temporaryPassword: current[tenantId]?.temporaryPassword ?? '',
       },
     }));
   };
@@ -583,7 +770,11 @@ function OwnerDashboard({
 
   const handleAdministratorPasswordReset = async (tenant: ControlPlaneTenant) => {
     const form = administratorForms[tenant.id];
-    if (!form?.username || !form.temporaryPassword) {
+    if (
+      !form?.currentUsername ||
+      !form.newUsername.trim() ||
+      !form.temporaryPassword
+    ) {
       return;
     }
 
@@ -595,11 +786,12 @@ function OwnerDashboard({
       await ownerApi(`/tenants/${tenant.id}/administrators/reset-password`, {
         method: 'POST',
         body: JSON.stringify({
-          username: form.username,
+          currentUsername: form.currentUsername,
+          newUsername: form.newUsername,
           temporaryPassword: form.temporaryPassword,
         }),
       });
-      setNotice(`Temporary password reset for ${form.username} in ${tenant.displayName}.`);
+      setNotice(`Administrator credentials reset to ${form.newUsername} in ${tenant.displayName}.`);
       await loadSnapshot();
     } catch (requestError) {
       setError(
@@ -617,7 +809,7 @@ function OwnerDashboard({
     if (
       !form?.username.trim() ||
       !form.displayName.trim() ||
-      form.temporaryPassword.length < 12
+      form.temporaryPassword.length < 8
     ) {
       return;
     }
@@ -748,6 +940,10 @@ function OwnerDashboard({
           {notice}
         </p>
       )}
+
+      <section className="mt-12 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8">
+        <PlatformWorkspaceControl setError={setError} setNotice={setNotice} />
+      </section>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.08fr_.92fr]">
         <ProvisionTenantForm onProvisioned={handleProvisioned} />
@@ -906,13 +1102,13 @@ function OwnerDashboard({
                               <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Temporary password</span>
                               <input
                                 type="password"
-                                minLength={12}
+                                minLength={8}
                                 maxLength={255}
                                 required
                                 value={administratorCreateForms[tenant.id]?.temporaryPassword ?? ''}
                                 onChange={(event) => updateAdministratorCreateForm(tenant.id, 'temporaryPassword', event.target.value)}
                                 autoComplete="new-password"
-                                placeholder="At least 12 characters"
+                                placeholder="At least 8 characters"
                                 disabled={pendingAction !== null}
                                 className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none placeholder:text-[hsl(var(--muted-foreground)/.55)] focus:border-[hsl(var(--ring))] disabled:opacity-50"
                                 data-testid={`input-create-administrator-password-${tenant.id}`}
@@ -929,7 +1125,7 @@ function OwnerDashboard({
                             </button>
                           </form>
                          <form
-                            className="mt-4 grid gap-3 border-t border-[hsl(var(--border))] pt-4 sm:grid-cols-[.8fr_1fr_auto] sm:items-end"
+                             className="mt-4 grid gap-3 border-t border-[hsl(var(--border))] pt-4 sm:grid-cols-2 xl:grid-cols-[.8fr_1fr_1fr_auto] xl:items-end"
                            onSubmit={(event) => {
                              event.preventDefault();
                              void handleAdministratorPasswordReset(tenant);
@@ -939,8 +1135,8 @@ function OwnerDashboard({
                            <label className="block">
                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Administrator</span>
                              <select
-                               value={administratorForms[tenant.id]?.username ?? ''}
-                               onChange={(event) => updateAdministratorForm(tenant.id, 'username', event.target.value)}
+                               value={administratorForms[tenant.id]?.currentUsername ?? ''}
+                               onChange={(event) => selectAdministratorForReset(tenant.id, event.target.value)}
                                disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none focus:border-[hsl(var(--ring))] disabled:opacity-50"
                                data-testid={`select-reset-administrator-${tenant.id}`}
@@ -950,17 +1146,30 @@ function OwnerDashboard({
                                ))}
                              </select>
                            </label>
+                            <label className="block">
+                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">New username</span>
+                              <input
+                                value={administratorForms[tenant.id]?.newUsername ?? ''}
+                                onChange={(event) => updateAdministratorForm(tenant.id, 'newUsername', event.target.value)}
+                                autoComplete="off"
+                                maxLength={255}
+                                required
+                                disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
+                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                                data-testid={`input-reset-administrator-username-${tenant.id}`}
+                              />
+                            </label>
                            <label className="block">
                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Temporary password</span>
                              <input
                                type="password"
-                               minLength={12}
+                               minLength={8}
                                maxLength={255}
                                required
                                value={administratorForms[tenant.id]?.temporaryPassword ?? ''}
                                onChange={(event) => updateAdministratorForm(tenant.id, 'temporaryPassword', event.target.value)}
                                autoComplete="new-password"
-                               placeholder="At least 12 characters"
+                               placeholder="At least 8 characters"
                                disabled={pendingAction !== null || !(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive)}
                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none placeholder:text-[hsl(var(--muted-foreground)/.55)] focus:border-[hsl(var(--ring))] disabled:opacity-50"
                                data-testid={`input-reset-administrator-password-${tenant.id}`}
@@ -973,7 +1182,7 @@ function OwnerDashboard({
                              data-testid={`button-reset-administrator-${tenant.id}`}
                            >
                              <KeyRound className="h-3.5 w-3.5" />
-                             {pendingAction === `administrator-reset:${tenant.id}` ? 'Resetting' : 'Reset password'}
+                              {pendingAction === `administrator-reset:${tenant.id}` ? 'Resetting' : 'Reset credentials'}
                            </button>
                          </form>
                          {!(administrators[tenant.id] ?? []).some((administrator) => administrator.isActive) && (
