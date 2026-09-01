@@ -25,6 +25,7 @@ interface ControlPlaneTenant {
   readonly displayName: string;
   readonly isActive: boolean;
   readonly activeModuleCount: number;
+  readonly activeModuleKeys: readonly string[];
   readonly createdAt: string;
 }
 
@@ -67,6 +68,8 @@ class OwnerApiError extends Error {
     super(message);
   }
 }
+
+const moduleKeys = ['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h'] as const;
 
 const emptyProvisioningForm: ProvisioningForm = {
   subdomain: '',
@@ -377,6 +380,8 @@ function OwnerDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ProvisioningResult | null>(null);
+  const [lifecycleMessage, setLifecycleMessage] = useState('');
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -414,6 +419,21 @@ function OwnerDashboard({
     setSuccess(result);
     void loadSnapshot();
   };
+
+  const updateLifecycle = async (path: string, active: boolean, label: string) => {
+    setUpdating(path);
+    setLifecycleMessage('');
+    try {
+      await ownerApi(path, { method: 'PATCH', body: JSON.stringify({ active }) });
+      setLifecycleMessage(`${label} ${active ? 'enabled' : 'disabled'}.`);
+      await loadSnapshot();
+    } catch (requestError) {
+      setLifecycleMessage(requestError instanceof OwnerApiError ? requestError.message : 'The lifecycle change could not be completed.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
 
   const activeTenants = snapshot?.tenants.filter((tenant) => tenant.isActive).length ?? 0;
   return (
@@ -475,6 +495,8 @@ function OwnerDashboard({
         </div>
       )}
 
+      {lifecycleMessage && <p className="mt-6 border-l-2 border-[hsl(var(--secondary))] pl-3 text-sm text-[hsl(var(--muted-foreground))]">{lifecycleMessage}</p>}
+
       <div className="mt-8 grid gap-6 xl:grid-cols-[1.08fr_.92fr]">
         <ProvisionTenantForm onProvisioned={handleProvisioned} />
         <section className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8">
@@ -498,10 +520,9 @@ function OwnerDashboard({
                     <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.subdomain}.{rootDomain}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.13em] text-[hsl(var(--secondary-foreground))]">
-                      {tenant.isActive ? 'Active' : 'Inactive'}
-                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.13em] text-[hsl(var(--secondary-foreground))]">{tenant.isActive ? 'Active' : 'Inactive'}</p>
                     <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.activeModuleCount} modules</p>
+                    <button disabled={updating === `/tenants/${tenant.id}`} onClick={() => void updateLifecycle(`/tenants/${tenant.id}`, !tenant.isActive, tenant.displayName)} className="mt-3 border border-[hsl(var(--border))] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] disabled:opacity-50">{tenant.isActive ? 'Deactivate' : 'Activate'}</button>
                   </div>
                 </div>
               ))
@@ -511,6 +532,8 @@ function OwnerDashboard({
           </div>
         </section>
       </div>
+
+      <section className="mt-6 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Module assignment</p><h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em]">Control tenant modules.</h2><div className="mt-6 space-y-5">{snapshot?.tenants.map((tenant) => <div key={tenant.id} className="border-t border-[hsl(var(--border))] pt-4"><p className="text-sm font-medium">{tenant.displayName}</p><div className="mt-3 flex flex-wrap gap-2">{moduleKeys.map((moduleKey) => { const active = tenant.activeModuleKeys.includes(moduleKey); const path = `/tenants/${tenant.id}/modules/${moduleKey}`; return <button key={moduleKey} disabled={updating === path} onClick={() => void updateLifecycle(path, !active, `${tenant.displayName} ${moduleKey}`)} className={`border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] disabled:opacity-50 ${active ? 'border-[hsl(var(--secondary))] bg-[hsl(var(--secondary)/.12)]' : 'border-[hsl(var(--border))]'}`}>{moduleKey.replace('_', ' ')}: {active ? 'on' : 'off'}</button>; })}</div></div>)}</div></section>
 
       <section className="mt-6 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8">
         <div className="flex items-center justify-between gap-4">

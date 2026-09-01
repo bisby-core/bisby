@@ -7,6 +7,7 @@ export interface ControlPlaneTenant {
   readonly displayName: string;
   readonly isActive: boolean;
   readonly activeModuleCount: number;
+  readonly activeModuleKeys: readonly string[];
   readonly createdAt: string;
 }
 
@@ -31,6 +32,7 @@ interface TenantSummaryRow {
   is_active: boolean;
   active_module_count: string | number;
   created_at: Date | string;
+  active_module_keys: string[] | null;
 }
 
 interface AuditRow {
@@ -71,6 +73,7 @@ export async function getControlPlaneSnapshot(
         );
       },
     )
+    .leftJoin("global_module_registry as modules", "modules.id", "activations.module_id")
     .select(
       "tenants.id",
       "tenants.subdomain",
@@ -79,6 +82,7 @@ export async function getControlPlaneSnapshot(
       "tenants.created_at",
     )
     .countDistinct({ active_module_count: "activations.module_id" })
+    .select(database.raw("coalesce(array_agg(modules.module_key) filter (where modules.module_key is not null), '{}') as active_module_keys"))
     .groupBy(
       "tenants.id",
       "tenants.subdomain",
@@ -100,6 +104,7 @@ export async function getControlPlaneSnapshot(
       displayName: tenant.display_name,
       isActive: tenant.is_active,
       activeModuleCount: Number(tenant.active_module_count),
+      activeModuleKeys: (tenant.active_module_keys ?? []).map(String),
       createdAt: new Date(tenant.created_at).toISOString(),
     })),
     availableModuleCount: MODULE_SCHEMA_NAMES.length,
@@ -111,4 +116,25 @@ export async function getControlPlaneSnapshot(
       createdAt: new Date(audit.created_at).toISOString(),
     })),
   };
+}
+
+
+export async function updateTenantLifecycle(database: Knex, actorUsername: string, tenantId: string, active: boolean): Promise<void> {
+  await database.transaction(async (transaction) => {
+    const tenant = await transaction("tenants").select("subdomain").where({ id: tenantId }).first<{ subdomain: string }>();
+    if (!tenant) throw new Error("tenant_not_found");
+    await transaction("tenants").where({ id: tenantId }).update({ is_active: active, updated_at: transaction.fn.now() });
+    await recordPlatformAudit(transaction, { eventType: active ? "owner.tenant.activated" : "owner.tenant.deactivated", actorUsername, subdomain: tenant.subdomain });
+  });
+}
+
+export async function updateTenantModuleLifecycle(database: Knex, actorUsername: string, tenantId: string, moduleKey: string, active: boolean): Promise<void> {
+  await database.transaction(async (transaction) => {
+    const tenant = await transaction("tenants").select("subdomain").where({ id: tenantId }).first<{ subdomain: string }>();
+    const module = await transaction("global_module_registry").select("id").where({ module_key: moduleKey, is_available: true }).first<{ id: string }>();
+    if (!tenant) throw new Error("tenant_not_found");
+    if (!module) throw new Error("module_not_found");
+    await transaction("tenant_module_activations").insert({ tenant_id: tenantId, module_id: module.id, is_enabled: active, activated_at: active ? transaction.fn.now() : null, deactivated_at: active ? null : transaction.fn.now() }).onConflict(["tenant_id", "module_id"]).merge({ is_enabled: active, activated_at: active ? transaction.fn.now() : null, deactivated_at: active ? null : transaction.fn.now() });
+    await recordPlatformAudit(transaction, { eventType: active ? "owner.tenant_module.activated" : "owner.tenant_module.deactivated", actorUsername, subdomain: tenant.subdomain, details: { moduleKey } });
+  });
 }

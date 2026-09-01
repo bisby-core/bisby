@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import {
   OwnerLoginBody,
   ProvisionTenantBody,
+  TenantLifecycleBody,
+  TenantModuleLifecycleBody,
 } from "./schemas";
 import {
   clearOwnerSessionCookie,
@@ -16,6 +18,8 @@ import {
 import {
   getControlPlaneSnapshot,
   recordPlatformAudit,
+  updateTenantLifecycle,
+  updateTenantModuleLifecycle,
 } from "../owner/control-plane";
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
 import { timingSafeEqual } from "node:crypto";
@@ -113,6 +117,32 @@ function ownerRouter(
   router.get("/me", (req, res) => {
     if (!requireOwnerSession(req, res)) return;
     res.json({ authenticated: true, username: req.ownerUsername });
+  });
+
+  router.patch("/tenants/:tenantId", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsed = TenantLifecycleBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "invalid_tenant_lifecycle_payload" }); return; }
+    try {
+      await updateTenantLifecycle(masterDatabase, req.ownerUsername as string, req.params.tenantId, parsed.data.active);
+      res.status(204).end();
+    } catch (error) {
+      if (error instanceof Error && error.message === "tenant_not_found") { res.status(404).json({ error: error.message }); return; }
+      next(error);
+    }
+  });
+
+  router.patch("/tenants/:tenantId/modules/:moduleKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsed = TenantModuleLifecycleBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "invalid_tenant_module_lifecycle_payload" }); return; }
+    try {
+      await updateTenantModuleLifecycle(masterDatabase, req.ownerUsername as string, req.params.tenantId, req.params.moduleKey, parsed.data.active);
+      res.status(204).end();
+    } catch (error) {
+      if (error instanceof Error && ["tenant_not_found", "module_not_found"].includes(error.message)) { res.status(404).json({ error: error.message }); return; }
+      next(error);
+    }
   });
 
   router.get("/control-plane", async (req, res, next) => {

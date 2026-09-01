@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ProvisionTenantBody } from "../routes/schemas";
+import { ProvisionTenantBody, TenantLifecycleBody, TenantModuleLifecycleBody } from "../routes/schemas";
 import { isRootHost } from "./auth";
 import {
   createOwnerSessionToken,
@@ -67,4 +67,11 @@ test("validates tenant and physical database provisioning input", () => {
     }).success,
     false,
   );
+});
+
+test("validates explicit tenant and module lifecycle states", () => {
+  assert.equal(TenantLifecycleBody.safeParse({ active: false }).success, true);
+  assert.equal(TenantLifecycleBody.safeParse({ active: "false" }).success, false);
+  assert.equal(TenantModuleLifecycleBody.safeParse({ active: true }).success, true);
+  assert.equal(TenantModuleLifecycleBody.safeParse({}).success, false);
 });
