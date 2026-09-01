@@ -1,0 +1,38 @@
+# BisBy control plane — Phase 1 handoff
+
+## Delivered
+- A new master-database migration creates `platform_audit_log`, an append-only audit table for owner control-plane events.
+- `GET /api/owner/control-plane` is an owner-session-protected API. It returns tenant registry summaries and the most recent audit entries.
+- Viewing the control-plane endpoint creates an `owner.control_plane.viewed` audit record.
+- The owner dashboard now loads and displays live tenant status, active module count, and recent audit activity.
+- The dashboard has an explicit migration-required error state rather than showing empty tenant data when the master schema is outdated.
+
+## Security boundaries
+- Owner access remains on the root host; tenant subdomains receive a 404 for owner API routes.
+- The API validates the signed owner session before opening the master database.
+- Tenant database names and connection credentials are not returned to the browser.
+- This phase is read-only: no tenant activation, database assignment, provisioning, or admin-management mutation endpoint is exposed yet.
+
+## Files added
+- `artifacts/api-server/src/db/migrations/master/20260901000000_add_platform_audit_log.ts`
+- `artifacts/api-server/src/owner/control-plane.ts`
+
+## Files changed
+- `artifacts/api-server/src/routes/owner.ts`
+- `artifacts/bisby-web/src/App.tsx`
+
+## Required deployment migration
+Run from an environment that can reach the PostgreSQL master database:
+
+```sh
+pnpm --filter @workspace/api-server run migrate:master
+```
+
+The Vercel build/runtime environment must retain the existing database variables: `PGUSER`, `PGPASSWORD`, `PGHOST`, `PGPORT`, `PGSSLMODE`, `BISBY_MASTER_DB_NAME`, plus `SESSION_SECRET`, `BISBY_OWNER_USERNAME`, and `BISBY_OWNER_PASSWORD`.
+
+## Next phases
+1. Tenant provisioning: validate names, create a dedicated physical database through the selected database provider, migrate its blueprint, and create its master registry row atomically where possible.
+2. Lifecycle controls: activate/deactivate tenant plus module assignment with server-side audit records.
+3. Tenant administrators: manage tenant-local administrator accounts through owner-authorized workflows.
+4. Operations: provisioning job status, tenant health, and expanded audit filtering.
+
