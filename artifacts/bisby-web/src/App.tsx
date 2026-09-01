@@ -61,6 +61,20 @@ const workspaceKeyFor = (number: string): WorkspaceKey | null => {
     : null;
 };
 
+const tenantNameFromHostname = (hostname: string): string | null => {
+  const normalizedHostname = hostname.toLowerCase().replace(/\.$/, '');
+  const suffix = '.bisby.pro';
+  if (!normalizedHostname.endsWith(suffix)) return null;
+
+  const subdomain = normalizedHostname.slice(0, -suffix.length);
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(subdomain)) return null;
+
+  return subdomain
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 const getErrorStatus = (error: unknown): number | undefined => {
   if (!error || typeof error !== 'object') return undefined;
   const candidate = error as {
@@ -179,8 +193,9 @@ function RouteFrame({ eyebrow, title, children, footer }: { eyebrow: string; tit
 function Home() {
   const health = useHealthCheck();
   const healthStatus = health.isLoading ? 'checking' : health.isError ? 'unavailable' : 'reachable';
+  const tenantName = tenantNameFromHostname(window.location.hostname);
   return (
-    <RouteFrame eyebrow="BisBy / entry point" title="A precise way in.">
+    <RouteFrame eyebrow="BisBy / entry point" title={tenantName ? `${tenantName} Entry Portal` : 'A precise way in.'}>
       <div className="mt-12 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
         <section className="bisby-reveal border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 [animation-delay:160ms] md:p-8">
           <div className="flex items-start justify-between gap-4">
@@ -217,8 +232,12 @@ function Home() {
                 {healthStatus === 'reachable' ? <Check className="h-5 w-5" /> : <Radio className="h-5 w-5" />}
               </div>
               <div>
-                <p className="font-mono text-xs uppercase tracking-[0.15em]">Destination pending</p>
-                <p className="mt-1 text-sm text-[hsl(var(--primary-foreground)/.62)]">Awaiting a tenant path.</p>
+                <p className="font-mono text-xs uppercase tracking-[0.15em]">
+                  {tenantName ? 'Authorized access point' : 'Destination pending'}
+                </p>
+                <p className="mt-1 text-sm text-[hsl(var(--primary-foreground)/.62)]">
+                  {tenantName ? `Welcome back, ${tenantName} Team.` : 'Awaiting a tenant path.'}
+                </p>
               </div>
             </div>
             <div className="mt-10 space-y-2">
