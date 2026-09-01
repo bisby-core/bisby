@@ -1,0 +1,34 @@
+# BisBy control plane — Phase 3 handoff
+
+## Delivered
+- Tenant provisioning already requires the platform owner to choose the tenant-local initial administrator username and a temporary password. The password is hashed inside the tenant database; it is not stored in the master registry or returned by the API.
+- Added owner-only tenant-administrator discovery: `GET /api/owner/tenants/:tenantId/administrators`.
+- Added owner-only temporary password reset: `POST /api/owner/tenants/:tenantId/administrators/reset-password` with `{ "username", "temporaryPassword" }`.
+- The owner dashboard now lists tenant-local staff accounts per tenant and supplies a temporary-password reset form for each tenant.
+
+## Security boundaries
+- The existing owner session, root-host-only, same-origin, and owner-request-header controls protect both endpoints.
+- The master registry resolves the physical tenant database internally. The browser never receives a database name, database credential, password hash, or submitted temporary password.
+- The reset query only updates an active `staff` account. Client accounts cannot be reset through this owner-administrator workflow.
+- Temporary passwords require at least 12 characters and are scrypt-hashed before storage.
+- Successful resets add `owner.tenant_administrator.password_reset` to the master audit log with the tenant subdomain and administrator username, but never the password.
+
+## Files added
+- `artifacts/api-server/src/owner/tenant-administrators.ts`
+
+## Files changed
+- `artifacts/api-server/src/routes/schemas.ts`
+- `artifacts/api-server/src/routes/owner.ts`
+- `artifacts/api-server/src/owner/owner.test.ts`
+- `artifacts/bisby-web/src/owner/OwnerControlPlane.tsx`
+
+## Deployment
+No database migration is needed. Deploy the merged change through the existing Vercel Git workflow.
+
+## Validation
+- API and web TypeScript checks passed.
+- 8 password, session, owner-boundary, provisioning-input, lifecycle-input, and reset-input tests passed.
+
+## Next phase
+Add managed tenant administrator creation/deactivation and a forced password-change-on-first-login flag. The owner should enter a temporary password; tenant users should choose their permanent password through a dedicated tenant-local reset flow.
+
