@@ -2,7 +2,9 @@ import { Router, type IRouter } from "express";
 import {
   OwnerLoginBody,
   OwnerTenantIdParams,
+  OwnerTenantAdministratorParams,
   OwnerTenantModuleParams,
+  OwnerTenantAdministratorCreateBody,
   OwnerTenantAdministratorResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
@@ -27,8 +29,10 @@ import {
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
 import {
   listTenantAdministrators,
+  createTenantAdministrator,
   resetTenantAdministratorPassword,
   TenantAdministratorError,
+  updateTenantAdministratorStatus,
 } from "../owner/tenant-administrators";
 import { timingSafeEqual } from "node:crypto";
 import type { Knex } from "knex";
@@ -175,6 +179,74 @@ function ownerRouter(
       next(error);
     }
   });
+
+  router.post("/tenants/:tenantId/administrators", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsedParams = OwnerTenantIdParams.safeParse(req.params);
+    const parsedBody = OwnerTenantAdministratorCreateBody.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      res.status(400).json({ error: "invalid_tenant_administrator_create_payload" });
+      return;
+    }
+
+    try {
+      res.status(201).json(
+        await createTenantAdministrator(
+          masterDatabase,
+          req.ownerUsername as string,
+          parsedParams.data.tenantId,
+          parsedBody.data,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof TenantAdministratorError) {
+        const status =
+          error.code === "tenant_not_found"
+            ? 404
+            : error.code === "administrator_conflict"
+              ? 409
+              : 503;
+        res.status(status).json({ error: error.code, message: error.message });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  router.patch(
+    "/tenants/:tenantId/administrators/:administratorId",
+    async (req, res, next) => {
+      if (!requireOwnerSession(req, res)) return;
+      const parsedParams = OwnerTenantAdministratorParams.safeParse(req.params);
+      const parsedBody = OwnerToggleBody.safeParse(req.body);
+      if (!parsedParams.success || !parsedBody.success) {
+        res.status(400).json({ error: "invalid_tenant_administrator_status_payload" });
+        return;
+      }
+
+      try {
+        res.json(
+          await updateTenantAdministratorStatus(
+            masterDatabase,
+            req.ownerUsername as string,
+            parsedParams.data.tenantId,
+            parsedParams.data.administratorId,
+            parsedBody.data.active,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof TenantAdministratorError) {
+          res.status(
+            error.code === "tenant_not_found" || error.code === "administrator_not_found"
+              ? 404
+              : 503,
+          ).json({ error: error.code, message: error.message });
+          return;
+        }
+        next(error);
+      }
+    },
+  );
 
   router.post(
     "/tenants/:tenantId/administrators/reset-password",

@@ -5,6 +5,7 @@ export interface AuthenticatedLocalUser {
   readonly accountId: string;
   readonly tenantId: string;
   readonly role: "staff" | "client";
+  readonly requiresPasswordChange: boolean;
 }
 
 declare global {

@@ -34,7 +34,8 @@ export const LoginBody = zod.object({
 export const LoginResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
-  "role": zod.enum(['staff', 'client'])
+  "role": zod.enum(['staff', 'client']),
+  "requiresPasswordChange": zod.boolean()
 })
 
 
@@ -44,7 +45,29 @@ export const LoginResponse = zod.object({
 export const GetCurrentUserResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
-  "role": zod.enum(['staff', 'client'])
+  "role": zod.enum(['staff', 'client']),
+  "requiresPasswordChange": zod.boolean()
+})
+
+
+/**
+ * @summary Replace a tenant-local account password
+ */
+export const changePasswordBodyCurrentPasswordMax = 255;
+
+export const changePasswordBodyNewPasswordMin = 12;
+export const changePasswordBodyNewPasswordMax = 255;
+
+
+
+export const ChangePasswordBody = zod.object({
+  "currentPassword": zod.string().min(1).max(changePasswordBodyCurrentPasswordMax),
+  "newPassword": zod.string().min(changePasswordBodyNewPasswordMin).max(changePasswordBodyNewPasswordMax)
+})
+
+export const ChangePasswordResponse = zod.object({
+  "status": zod.enum(['password_changed']),
+  "requiresPasswordChange": zod.literal(false)
 })
 
 

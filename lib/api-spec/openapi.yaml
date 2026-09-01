@@ -74,6 +74,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Replace a tenant-local account password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password replaced and first-login requirement cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordChangeResponse"
+        "400":
+          description: Invalid password-change payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication or the current password is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/logout:
     post:
       operationId: logout
@@ -122,6 +152,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "428":
+          description: A permanent password must be set before workspace access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: The route target does not exist
           content:
@@ -156,10 +192,42 @@ components:
           enum:
             - staff
             - client
+        requiresPasswordChange:
+          type: boolean
       required:
         - accountId
         - tenantId
         - role
+        - requiresPasswordChange
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 255
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 255
+      required:
+        - currentPassword
+        - newPassword
+    PasswordChangeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - password_changed
+        requiresPasswordChange:
+          type: boolean
+          enum:
+            - false
+      required:
+        - status
+        - requiresPasswordChange
     AuthLogoutResponse:
       type: object
       properties:

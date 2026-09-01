@@ -20,6 +20,7 @@ import {
 import {
   getGetRouteAccessQueryKey,
   ModuleKey,
+  useChangePassword,
   useLogin,
   useLogout,
   useGetRouteAccess,
@@ -313,9 +314,10 @@ function Login() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      await login.mutateAsync({ data: { username, password } });
+      const account = await login.mutateAsync({ data: { username, password } });
       await queryClient.invalidateQueries();
-      setLocation('/a/ws-1');
+      setPassword('');
+      setLocation(account.requiresPasswordChange ? '/change-password' : '/a/ws-1');
     } catch {
       // The mutation state renders the safe API error below.
     }
@@ -401,9 +403,133 @@ function Login() {
   );
 }
 
+function ChangePassword() {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const changePassword = useChangePassword();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setValidationError('');
+    if (newPassword !== confirmation) {
+      setValidationError('The new passwords do not match.');
+      return;
+    }
+
+    try {
+      await changePassword.mutateAsync({
+        data: { currentPassword, newPassword },
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmation('');
+      await queryClient.invalidateQueries();
+      setLocation('/a/ws-1');
+    } catch {
+      // The mutation state renders the safe API error below.
+    }
+  };
+
+  const errorStatus = getErrorStatus(changePassword.error);
+  return (
+    <RouteFrame eyebrow="BisBy / tenant security" title="Set your permanent password.">
+      <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_.8fr]">
+        <form
+          onSubmit={handleSubmit}
+          className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"
+          data-testid="form-change-password"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center bg-[hsl(var(--secondary)/.22)] text-[hsl(var(--secondary-foreground))]">
+              <LockKeyhole className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">First-login requirement</p>
+              <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Replace the temporary credential before entering a workspace.</p>
+            </div>
+          </div>
+          {[
+            {
+              id: 'current-password',
+              label: 'Current temporary password',
+              value: currentPassword,
+              setValue: setCurrentPassword,
+              autoComplete: 'current-password',
+            },
+            {
+              id: 'new-password',
+              label: 'New permanent password',
+              value: newPassword,
+              setValue: setNewPassword,
+              autoComplete: 'new-password',
+            },
+            {
+              id: 'confirm-password',
+              label: 'Confirm new password',
+              value: confirmation,
+              setValue: setConfirmation,
+              autoComplete: 'new-password',
+            },
+          ].map((field, index) => (
+            <label
+              key={field.id}
+              className={`${index === 0 ? 'mt-10' : 'mt-6'} block font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]`}
+              htmlFor={field.id}
+            >
+              {field.label}
+              <input
+                id={field.id}
+                type="password"
+                value={field.value}
+                onChange={(event) => field.setValue(event.target.value)}
+                autoComplete={field.autoComplete}
+                minLength={index === 0 ? 1 : 12}
+                maxLength={255}
+                required
+                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3 font-mono text-sm outline-none transition-colors focus:border-[hsl(var(--ring))]"
+                data-testid={`input-${field.id}`}
+              />
+            </label>
+          ))}
+          {(validationError || changePassword.isError) && (
+            <p className="mt-5 border-l-2 border-[hsl(var(--accent))] pl-3 text-sm leading-6 text-[hsl(var(--accent-foreground))]" data-testid="status-change-password-error">
+              {validationError ||
+                (errorStatus === 401
+                  ? 'The current password was not accepted.'
+                  : 'The password could not be changed safely.')}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={changePassword.isPending}
+            className="mt-8 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50"
+            data-testid="button-change-password"
+          >
+            <LockKeyhole className="h-3.5 w-3.5" />
+            {changePassword.isPending ? 'Saving permanent password' : 'Set permanent password'}
+          </button>
+        </form>
+        <section className="border border-[hsl(var(--primary))] bg-[hsl(var(--primary))] p-6 text-[hsl(var(--primary-foreground))] md:p-8">
+          <ShieldAlert className="h-8 w-8 text-[hsl(var(--secondary))]" />
+          <p className="mt-12 text-2xl font-semibold tracking-[-0.035em]">Workspace access remains locked.</p>
+          <p className="mt-4 text-sm leading-6 text-[hsl(var(--primary-foreground)/.64)]">
+            The permanent password is stored only as a tenant-local scrypt hash. Your temporary credential stops working after this change.
+          </p>
+        </section>
+      </div>
+    </RouteFrame>
+  );
+}
+
 function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; moduleLetter: ModuleLetter; workspaceKey: WorkspaceKey }) {
   const details = status === 401
     ? { code: '401', title: 'Identity required', body: 'This destination needs an authenticated local account before access can be resolved.' }
+    : status === 428
+      ? { code: '428', title: 'Permanent password required', body: 'This account must replace its temporary password before workspace access can be resolved.' }
     : status === 403
       ? { code: '403', title: 'Destination not assigned', body: 'The account is known, but this tenant, module, or workspace is not assigned to it.' }
       : status === 404
@@ -422,9 +548,9 @@ function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; 
         </div>
         <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">{details.title}</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-[hsl(var(--muted-foreground))]">{details.body}</p>
-         {status === 401 && (
-           <Link href="/login" className="mt-5 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85" data-testid="link-route-login">
-             <LogIn className="h-3.5 w-3.5" /> Open local sign in
+         {(status === 401 || status === 428) && (
+            <Link href={status === 428 ? '/change-password' : '/login'} className="mt-5 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85" data-testid={status === 428 ? 'link-route-change-password' : 'link-route-login'}>
+              <LogIn className="h-3.5 w-3.5" /> {status === 428 ? 'Set permanent password' : 'Open local sign in'}
            </Link>
          )}
       </div>
@@ -573,6 +699,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/login" component={Login} />
+        <Route path="/change-password" component={ChangePassword} />
         <Route path="/:moduleLetter/:workspaceKey" component={WorkspaceRoute} />
         <Route path="/:moduleLetter" component={ModuleRoute} />
         <Route component={() => <InvalidRoute requested={window.location.pathname} reason="Use /a through /h, or /a/ws-1 through /h/ws-10." />} />

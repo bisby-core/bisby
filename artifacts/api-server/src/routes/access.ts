@@ -26,6 +26,11 @@ router.get("/access/:moduleKey/:workspaceKey", async (req, res, next) => {
     return;
   }
 
+  if (req.authenticatedUser.requiresPasswordChange) {
+    res.status(428).json({ error: "password_change_required" });
+    return;
+  }
+
   if (!req.tenantContext || !req.tenantDatabase) {
     res.status(500).json({ error: "tenant_context_unavailable" });
     return;

@@ -15,6 +15,7 @@ interface AccountRow {
   id: string;
   account_type: string;
   is_active: boolean;
+  must_change_password: boolean;
 }
 
 function readCookie(
@@ -106,7 +107,7 @@ export function createLocalAuthMiddleware(): RequestHandler {
       const account = await req.tenantDatabase<AccountRow>(
         "core_admin.client_accounts",
       )
-        .select("id", "account_type", "is_active")
+        .select("id", "account_type", "is_active", "must_change_password")
         .where({ id: session.accountId })
         .first();
 
@@ -123,6 +124,7 @@ export function createLocalAuthMiddleware(): RequestHandler {
         accountId: account.id,
         tenantId: req.tenantContext.tenantId,
         role: toRole(account.account_type),
+          requiresPasswordChange: account.must_change_password,
       };
       next();
     } catch (error) {

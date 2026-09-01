@@ -63,7 +63,7 @@ app.use(
 );
 app.use("/api", createLocalAuthMiddleware());
 app.use("/api", router);
-app.use("/api", authRouter);
+app.use("/api", authRouter(masterDatabase));
 
 app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err: error, requestId: req.id }, "Unhandled API error");

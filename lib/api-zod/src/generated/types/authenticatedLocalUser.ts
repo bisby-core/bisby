@@ -11,4 +11,5 @@ export interface AuthenticatedLocalUser {
   accountId: string;
   tenantId: string;
   role: AuthenticatedLocalUserRole;
+  requiresPasswordChange: boolean;
 }

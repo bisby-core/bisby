@@ -31,6 +31,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("display_name", 255).notNullable();
     table.text("password_hash").notNullable();
     table.boolean("is_active").notNullable().defaultTo(true);
+     table.boolean("must_change_password").notNullable().defaultTo(false);
     addAuditColumns(table, knex);
   });
 

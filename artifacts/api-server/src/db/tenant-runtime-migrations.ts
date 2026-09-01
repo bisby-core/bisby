@@ -1,6 +1,7 @@
 import type { Knex } from "knex";
 import * as createTenantBlueprint from "./migrations/tenant/20260829000000_create_tenant_database_blueprint";
 import * as addRouteAssignmentFields from "./migrations/tenant/20260829000001_add_route_assignment_fields";
+import * as addPasswordChangeRequirement from "./migrations/tenant/20260901020000_add_password_change_requirement";
 
 interface RuntimeMigration {
   readonly name: string;
@@ -16,6 +17,10 @@ const migrations: readonly RuntimeMigration[] = [
   {
     name: "20260829000001_add_route_assignment_fields.ts",
     ...addRouteAssignmentFields,
+  },
+  {
+    name: "20260901020000_add_password_change_requirement.ts",
+    ...addPasswordChangeRequirement,
   },
 ];
 

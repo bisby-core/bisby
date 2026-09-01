@@ -28,8 +28,17 @@ export const LoginResponse = z.object({
   accountId: z.string(),
   tenantId: z.string(),
   role: z.enum(["staff", "client"]),
+  requiresPasswordChange: z.boolean(),
 });
 export const GetCurrentUserResponse = LoginResponse;
+export const ChangePasswordBody = z.object({
+  currentPassword: z.string().min(1).max(255),
+  newPassword: z.string().min(12).max(255),
+}).strict();
+export const ChangePasswordResponse = z.object({
+  status: z.literal("password_changed"),
+  requiresPasswordChange: z.literal(false),
+});
 export const LogoutResponse = z.object({ authenticated: z.boolean() });
 export const GetRouteAccessParams = z.object({ moduleKey, workspaceKey });
 export const GetRouteAccessResponse = z.object({
@@ -57,6 +66,11 @@ export const OwnerTenantIdParams = z.object({
   tenantId: z.string().uuid(),
 });
 
+export const OwnerTenantAdministratorParams = z.object({
+  tenantId: z.string().uuid(),
+  administratorId: z.string().uuid(),
+});
+
 export const OwnerTenantModuleParams = z.object({
   tenantId: z.string().uuid(),
   moduleKey,
@@ -68,5 +82,11 @@ export const OwnerToggleBody = z.object({
 
 export const OwnerTenantAdministratorResetBody = z.object({
   username: z.string().trim().min(1).max(255),
+  temporaryPassword: z.string().min(12).max(255),
+}).strict();
+
+export const OwnerTenantAdministratorCreateBody = z.object({
+  username: z.string().trim().min(1).max(255),
+  displayName: z.string().trim().min(1).max(255),
   temporaryPassword: z.string().min(12).max(255),
 }).strict();

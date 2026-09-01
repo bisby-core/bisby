@@ -157,6 +157,7 @@ async function migrateAndSeedTenant(
         password_hash: passwordHash,
         account_type: ADMIN_ACCOUNT_TYPE,
         is_active: true,
+         must_change_password: true,
       });
 
       const account = await transaction("core_admin.client_accounts")

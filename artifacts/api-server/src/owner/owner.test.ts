@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  OwnerTenantAdministratorCreateBody,
+  OwnerTenantAdministratorParams,
   OwnerTenantIdParams,
   OwnerTenantModuleParams,
   OwnerTenantAdministratorResetBody,
@@ -118,6 +120,51 @@ test("validates tenant administrator password reset input", () => {
       username: "admin",
       temporaryPassword: "temporary-password",
       passwordHash: "should-not-be-accepted",
+    }).success,
+    false,
+  );
+});
+
+test("validates tenant administrator creation input", () => {
+  assert.equal(
+    OwnerTenantAdministratorCreateBody.safeParse({
+      username: "ops-admin",
+      displayName: "Operations Administrator",
+      temporaryPassword: "temporary-password",
+    }).success,
+    true,
+  );
+  assert.equal(
+    OwnerTenantAdministratorCreateBody.safeParse({
+      username: "ops-admin",
+      displayName: "",
+      temporaryPassword: "short",
+    }).success,
+    false,
+  );
+  assert.equal(
+    OwnerTenantAdministratorCreateBody.safeParse({
+      username: "ops-admin",
+      displayName: "Operations Administrator",
+      temporaryPassword: "temporary-password",
+      accountType: "client",
+    }).success,
+    false,
+  );
+});
+
+test("validates tenant administrator status route identifiers", () => {
+  assert.equal(
+    OwnerTenantAdministratorParams.safeParse({
+      tenantId: "11111111-1111-4111-8111-111111111111",
+      administratorId: "22222222-2222-4222-8222-222222222222",
+    }).success,
+    true,
+  );
+  assert.equal(
+    OwnerTenantAdministratorParams.safeParse({
+      tenantId: "design",
+      administratorId: "admin",
     }).success,
     false,
   );

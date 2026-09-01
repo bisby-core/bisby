@@ -56,6 +56,7 @@ interface TenantAdministrator {
   readonly displayName: string;
   readonly isActive: boolean;
   readonly createdAt: string;
+  readonly requiresPasswordChange: boolean;
 }
 
 interface TenantAdministratorsSnapshot {
@@ -66,6 +67,12 @@ interface TenantAdministratorsSnapshot {
 
 interface AdministratorResetForm {
   username: string;
+  temporaryPassword: string;
+}
+
+interface AdministratorCreateForm {
+  username: string;
+  displayName: string;
   temporaryPassword: string;
 }
 
@@ -413,6 +420,7 @@ function OwnerDashboard({
   const [administratorLoading, setAdministratorLoading] = useState(true);
   const [administrators, setAdministrators] = useState<Record<string, readonly TenantAdministrator[]>>({});
   const [administratorForms, setAdministratorForms] = useState<Record<string, AdministratorResetForm>>({});
+  const [administratorCreateForms, setAdministratorCreateForms] = useState<Record<string, AdministratorCreateForm>>({});
   const [notice, setNotice] = useState('');
 
   const loadSnapshot = useCallback(async () => {
@@ -450,6 +458,18 @@ function OwnerDashboard({
               },
             ];
           }),
+        ),
+      );
+      setAdministratorCreateForms((current) =>
+        Object.fromEntries(
+          administratorSnapshots.map((tenant) => [
+            tenant.tenantId,
+            current[tenant.tenantId] ?? {
+              username: '',
+              displayName: '',
+              temporaryPassword: '',
+            },
+          ]),
         ),
       );
     } catch (requestError) {
@@ -545,6 +565,22 @@ function OwnerDashboard({
     }));
   };
 
+  const updateAdministratorCreateForm = (
+    tenantId: string,
+    field: keyof AdministratorCreateForm,
+    value: string,
+  ) => {
+    setAdministratorCreateForms((current) => ({
+      ...current,
+      [tenantId]: {
+        username: current[tenantId]?.username ?? '',
+        displayName: current[tenantId]?.displayName ?? '',
+        temporaryPassword: current[tenantId]?.temporaryPassword ?? '',
+        [field]: value,
+      },
+    }));
+  };
+
   const handleAdministratorPasswordReset = async (tenant: ControlPlaneTenant) => {
     const form = administratorForms[tenant.id];
     if (!form?.username || !form.temporaryPassword) {
@@ -570,6 +606,77 @@ function OwnerDashboard({
         requestError instanceof OwnerApiError
           ? requestError.message
           : 'The administrator password could not be reset.',
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleAdministratorCreate = async (tenant: ControlPlaneTenant) => {
+    const form = administratorCreateForms[tenant.id];
+    if (
+      !form?.username.trim() ||
+      !form.displayName.trim() ||
+      form.temporaryPassword.length < 12
+    ) {
+      return;
+    }
+
+    const actionKey = `administrator-create:${tenant.id}`;
+    setPendingAction(actionKey);
+    setError('');
+    setNotice('');
+    try {
+      await ownerApi(`/tenants/${tenant.id}/administrators`, {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+      setAdministratorCreateForms((current) => ({
+        ...current,
+        [tenant.id]: {
+          username: '',
+          displayName: '',
+          temporaryPassword: '',
+        },
+      }));
+      setNotice(`Tenant-local administrator ${form.username} created in ${tenant.displayName}.`);
+      await loadSnapshot();
+    } catch (requestError) {
+      setError(
+        requestError instanceof OwnerApiError
+          ? requestError.message
+          : 'The administrator could not be created.',
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleAdministratorStatus = async (
+    tenant: ControlPlaneTenant,
+    administrator: TenantAdministrator,
+  ) => {
+    const actionKey = `administrator-status:${administrator.id}`;
+    setPendingAction(actionKey);
+    setError('');
+    setNotice('');
+    try {
+      await ownerApi(
+        `/tenants/${tenant.id}/administrators/${administrator.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ active: !administrator.isActive }),
+        },
+      );
+      setNotice(
+        `${administrator.username} ${administrator.isActive ? 'deactivated' : 'activated'} in ${tenant.displayName}.`,
+      );
+      await loadSnapshot();
+    } catch (requestError) {
+      setError(
+        requestError instanceof OwnerApiError
+          ? requestError.message
+          : 'The administrator status could not be updated.',
       );
     } finally {
       setPendingAction(null);
@@ -732,17 +839,97 @@ function OwnerDashboard({
                                  <p className="truncate text-sm">{administrator.displayName}</p>
                                  <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{administrator.username}</p>
                                </div>
-                               <span className={`shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] ${administrator.isActive ? 'text-[hsl(var(--secondary-foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                                 {administrator.isActive ? 'Active' : 'Inactive'}
-                               </span>
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                  {administrator.requiresPasswordChange && (
+                                    <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[hsl(var(--accent-foreground))]">
+                                      Password change required
+                                    </span>
+                                  )}
+                                  <span className={`font-mono text-[9px] uppercase tracking-[0.12em] ${administrator.isActive ? 'text-[hsl(var(--secondary-foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                                    {administrator.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleAdministratorStatus(tenant, administrator)}
+                                    disabled={pendingAction !== null}
+                                    className="border border-[hsl(var(--border))] px-2 py-1.5 font-mono text-[9px] uppercase tracking-[0.1em] transition-colors hover:border-[hsl(var(--primary))] disabled:cursor-wait disabled:opacity-50"
+                                    data-testid={`button-administrator-status-${administrator.id}`}
+                                  >
+                                    {pendingAction === `administrator-status:${administrator.id}`
+                                      ? 'Saving'
+                                      : administrator.isActive
+                                        ? 'Deactivate'
+                                        : 'Activate'}
+                                  </button>
+                                </div>
                              </div>
                            ))}
                            {administrators[tenant.id]?.length === 0 && (
                              <p className="text-sm text-[hsl(var(--muted-foreground))]">No tenant-local staff accounts found.</p>
                            )}
                          </div>
+                          <form
+                            className="mt-4 grid gap-3 border-t border-[hsl(var(--border))] pt-4 sm:grid-cols-2 xl:grid-cols-[.8fr_1fr_1fr_auto] xl:items-end"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void handleAdministratorCreate(tenant);
+                            }}
+                            data-testid={`form-create-administrator-${tenant.id}`}
+                          >
+                            <label className="block">
+                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Username</span>
+                              <input
+                                value={administratorCreateForms[tenant.id]?.username ?? ''}
+                                onChange={(event) => updateAdministratorCreateForm(tenant.id, 'username', event.target.value)}
+                                autoComplete="off"
+                                maxLength={255}
+                                required
+                                disabled={pendingAction !== null}
+                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                                data-testid={`input-create-administrator-username-${tenant.id}`}
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Display name</span>
+                              <input
+                                value={administratorCreateForms[tenant.id]?.displayName ?? ''}
+                                onChange={(event) => updateAdministratorCreateForm(tenant.id, 'displayName', event.target.value)}
+                                autoComplete="off"
+                                maxLength={255}
+                                required
+                                disabled={pendingAction !== null}
+                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                                data-testid={`input-create-administrator-display-name-${tenant.id}`}
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Temporary password</span>
+                              <input
+                                type="password"
+                                minLength={12}
+                                maxLength={255}
+                                required
+                                value={administratorCreateForms[tenant.id]?.temporaryPassword ?? ''}
+                                onChange={(event) => updateAdministratorCreateForm(tenant.id, 'temporaryPassword', event.target.value)}
+                                autoComplete="new-password"
+                                placeholder="At least 12 characters"
+                                disabled={pendingAction !== null}
+                                className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-2.5 font-mono text-xs outline-none placeholder:text-[hsl(var(--muted-foreground)/.55)] focus:border-[hsl(var(--ring))] disabled:opacity-50"
+                                data-testid={`input-create-administrator-password-${tenant.id}`}
+                              />
+                            </label>
+                            <button
+                              type="submit"
+                              disabled={pendingAction !== null}
+                              className="inline-flex h-[38px] items-center justify-center gap-2 bg-[hsl(var(--primary))] px-3 font-mono text-[9px] uppercase tracking-[0.12em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+                              data-testid={`button-create-administrator-${tenant.id}`}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              {pendingAction === `administrator-create:${tenant.id}` ? 'Creating' : 'Create account'}
+                            </button>
+                          </form>
                          <form
-                           className="mt-4 grid gap-3 sm:grid-cols-[.8fr_1fr_auto] sm:items-end"
+                            className="mt-4 grid gap-3 border-t border-[hsl(var(--border))] pt-4 sm:grid-cols-[.8fr_1fr_auto] sm:items-end"
                            onSubmit={(event) => {
                              event.preventDefault();
                              void handleAdministratorPasswordReset(tenant);

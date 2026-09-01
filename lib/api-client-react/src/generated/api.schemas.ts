@@ -30,6 +30,32 @@ export interface AuthenticatedLocalUser {
   accountId: string;
   tenantId: string;
   role: AuthenticatedLocalUserRole;
+  requiresPasswordChange: boolean;
+}
+
+export interface ChangePasswordRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  currentPassword: string;
+  /**
+     * @minLength 12
+     * @maxLength 255
+     */
+  newPassword: string;
+}
+
+export type PasswordChangeResponseStatus = typeof PasswordChangeResponseStatus[keyof typeof PasswordChangeResponseStatus];
+
+
+export const PasswordChangeResponseStatus = {
+  password_changed: 'password_changed',
+} as const;
+
+export interface PasswordChangeResponse {
+  status: PasswordChangeResponseStatus;
+  requiresPasswordChange: false;
 }
 
 export interface AuthLogoutResponse {
