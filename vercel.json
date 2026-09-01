@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "public": true,
   "buildCommand": "pnpm --filter @workspace/bisby-web run build",
   "outputDirectory": "artifacts/bisby-web/dist/public",
   "rewrites": [
