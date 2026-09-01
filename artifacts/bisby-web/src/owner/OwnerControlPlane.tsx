@@ -26,6 +26,14 @@ interface ControlPlaneTenant {
   readonly isActive: boolean;
   readonly activeModuleCount: number;
   readonly createdAt: string;
+  readonly modules: readonly ControlPlaneModule[];
+}
+
+interface ControlPlaneModule {
+  readonly moduleKey: string;
+  readonly displayName: string;
+  readonly isActive: boolean;
+  readonly isAvailable: boolean;
 }
 
 interface PlatformAuditEvent {
@@ -261,6 +269,11 @@ function Metric({
   );
 }
 
+function moduleLabel(moduleKey: string): string {
+  const suffix = moduleKey.replace(/^module_/, '').toUpperCase();
+  return `Module ${suffix}`;
+}
+
 function ProvisionTenantForm({
   onProvisioned,
 }: {
@@ -377,6 +390,7 @@ function OwnerDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ProvisioningResult | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -413,6 +427,51 @@ function OwnerDashboard({
   const handleProvisioned = (result: ProvisioningResult) => {
     setSuccess(result);
     void loadSnapshot();
+  };
+
+  const handleTenantStatus = async (tenant: ControlPlaneTenant) => {
+    const actionKey = `tenant:${tenant.id}`;
+    setPendingAction(actionKey);
+    setError('');
+    try {
+      await ownerApi(`/tenants/${tenant.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !tenant.isActive }),
+      });
+      await loadSnapshot();
+    } catch (requestError) {
+      setError(
+        requestError instanceof OwnerApiError
+          ? requestError.message
+          : 'The tenant status could not be updated.',
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleModuleStatus = async (
+    tenant: ControlPlaneTenant,
+    module: ControlPlaneModule,
+  ) => {
+    const actionKey = `module:${tenant.id}:${module.moduleKey}`;
+    setPendingAction(actionKey);
+    setError('');
+    try {
+      await ownerApi(`/tenants/${tenant.id}/modules/${module.moduleKey}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !module.isActive }),
+      });
+      await loadSnapshot();
+    } catch (requestError) {
+      setError(
+        requestError instanceof OwnerApiError
+          ? requestError.message
+          : 'The module status could not be updated.',
+      );
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const activeTenants = snapshot?.tenants.filter((tenant) => tenant.isActive).length ?? 0;
@@ -492,16 +551,53 @@ function OwnerDashboard({
               </div>
             ) : snapshot?.tenants.length ? (
               snapshot.tenants.map((tenant) => (
-                <div key={tenant.id} className="flex items-center justify-between gap-4 py-4">
-                  <div>
-                    <p className="text-sm font-medium">{tenant.displayName}</p>
-                    <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.subdomain}.{rootDomain}</p>
+                <div key={tenant.id} className="py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium">{tenant.displayName}</p>
+                      <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.subdomain}.{rootDomain}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleTenantStatus(tenant)}
+                      disabled={pendingAction !== null}
+                      className="shrink-0 border border-[hsl(var(--border))] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))] transition-colors hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] disabled:cursor-wait disabled:opacity-50"
+                      data-testid={`button-tenant-status-${tenant.id}`}
+                    >
+                      {pendingAction === `tenant:${tenant.id}` ? 'Saving' : tenant.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.13em] text-[hsl(var(--secondary-foreground))]">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span className={`font-mono text-[10px] uppercase tracking-[0.13em] ${tenant.isActive ? 'text-[hsl(var(--secondary-foreground))]' : 'text-[hsl(var(--accent-foreground))]'}`}>
                       {tenant.isActive ? 'Active' : 'Inactive'}
-                    </p>
-                    <p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.activeModuleCount} modules</p>
+                    </span>
+                    <span className="text-[hsl(var(--border))]">·</span>
+                    <span className="font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.activeModuleCount} modules enabled</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {tenant.modules.map((module) => {
+                      const actionKey = `module:${tenant.id}:${module.moduleKey}`;
+                      return (
+                        <button
+                          key={module.moduleKey}
+                          type="button"
+                          onClick={() => void handleModuleStatus(tenant, module)}
+                          disabled={!module.isAvailable || pendingAction !== null}
+                          className={`flex items-center justify-between gap-2 border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                            module.isActive
+                              ? 'border-[hsl(var(--secondary)/.55)] bg-[hsl(var(--secondary)/.08)]'
+                              : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]'
+                          }`}
+                          title={!module.isAvailable ? 'Module unavailable globally' : undefined}
+                          data-testid={`button-module-status-${tenant.id}-${module.moduleKey}`}
+                        >
+                          <span className="font-mono text-[10px] uppercase tracking-[0.1em]">{moduleLabel(module.moduleKey)}</span>
+                          <span className="font-mono text-[9px] uppercase text-[hsl(var(--muted-foreground))]">
+                            {pendingAction === actionKey ? '…' : !module.isAvailable ? 'N/A' : module.isActive ? 'On' : 'Off'}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))

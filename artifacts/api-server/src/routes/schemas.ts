@@ -52,3 +52,16 @@ export const ProvisionTenantBody = z.object({
   adminUsername: z.string().trim().min(1).max(255),
   adminPassword: z.string().min(12).max(255),
 });
+
+export const OwnerTenantIdParams = z.object({
+  tenantId: z.string().uuid(),
+});
+
+export const OwnerTenantModuleParams = z.object({
+  tenantId: z.string().uuid(),
+  moduleKey,
+});
+
+export const OwnerToggleBody = z.object({
+  active: z.boolean(),
+});

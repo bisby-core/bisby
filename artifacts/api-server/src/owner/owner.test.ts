@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ProvisionTenantBody } from "../routes/schemas";
+import {
+  OwnerTenantIdParams,
+  OwnerTenantModuleParams,
+  OwnerToggleBody,
+  ProvisionTenantBody,
+} from "../routes/schemas";
 import { isRootHost } from "./auth";
 import {
   createOwnerSessionToken,
@@ -67,4 +72,27 @@ test("validates tenant and physical database provisioning input", () => {
     }).success,
     false,
   );
+});
+
+test("validates owner lifecycle mutation inputs", () => {
+  const tenantId = "11111111-1111-4111-8111-111111111111";
+  assert.equal(OwnerTenantIdParams.safeParse({ tenantId }).success, true);
+  assert.equal(
+    OwnerTenantModuleParams.safeParse({
+      tenantId,
+      moduleKey: "module_h",
+    }).success,
+    true,
+  );
+  assert.equal(OwnerToggleBody.safeParse({ active: false }).success, true);
+
+  assert.equal(
+    OwnerTenantModuleParams.safeParse({
+      tenantId,
+      moduleKey: "module_i",
+    }).success,
+    false,
+  );
+  assert.equal(OwnerToggleBody.safeParse({ active: "false" }).success, false);
+  assert.equal(OwnerTenantIdParams.safeParse({ tenantId: "not-a-uuid" }).success, false);
 });

@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import {
   OwnerLoginBody,
+  OwnerTenantIdParams,
+  OwnerTenantModuleParams,
+  OwnerToggleBody,
   ProvisionTenantBody,
 } from "./schemas";
 import {
@@ -15,7 +18,10 @@ import {
 } from "../owner/auth";
 import {
   getControlPlaneSnapshot,
+  OwnerControlPlaneError,
   recordPlatformAudit,
+  updateTenantModule,
+  updateTenantStatus,
 } from "../owner/control-plane";
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
 import { timingSafeEqual } from "node:crypto";
@@ -161,6 +167,67 @@ function ownerRouter(
           error: "tenant_provisioning_failed",
           message: error.message,
           stage: error.stage,
+        });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  router.patch("/tenants/:tenantId", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsedParams = OwnerTenantIdParams.safeParse(req.params);
+    const parsedBody = OwnerToggleBody.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      res.status(400).json({ error: "invalid_tenant_status_payload" });
+      return;
+    }
+
+    try {
+      res.json(
+        await updateTenantStatus(
+          masterDatabase,
+          req.ownerUsername as string,
+          parsedParams.data.tenantId,
+          parsedBody.data.active,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof OwnerControlPlaneError) {
+        res.status(error.code === "tenant_not_found" ? 404 : 409).json({
+          error: error.code,
+          message: error.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  router.patch("/tenants/:tenantId/modules/:moduleKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const parsedParams = OwnerTenantModuleParams.safeParse(req.params);
+    const parsedBody = OwnerToggleBody.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      res.status(400).json({ error: "invalid_tenant_module_payload" });
+      return;
+    }
+
+    try {
+      res.json(
+        await updateTenantModule(
+          masterDatabase,
+          req.ownerUsername as string,
+          parsedParams.data.tenantId,
+          parsedParams.data.moduleKey,
+          parsedBody.data.active,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof OwnerControlPlaneError) {
+        res.status(error.code === "tenant_not_found" ? 404 : 409).json({
+          error: error.code,
+          message: error.message,
         });
         return;
       }
