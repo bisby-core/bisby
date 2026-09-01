@@ -224,14 +224,35 @@ function OwnerLogin() {
   return <RouteFrame eyebrow="BisBy / owner access" title="Owner Control Center"><form onSubmit={submit} className="mt-12 max-w-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Platform owner only</p><label className="mt-8 block font-mono text-[10px] uppercase tracking-[0.15em]" htmlFor="owner-username">Username</label><input id="owner-username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3" /><label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.15em]" htmlFor="owner-password">Password</label><input id="owner-password" type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3" />{error && <p className="mt-5 text-sm text-[hsl(var(--destructive))]">The username or password was not accepted.</p>}<button disabled={pending} className="mt-8 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))]"><LogIn className="h-3.5 w-3.5" />{pending ? 'Signing in' : 'Sign in'}</button></form></RouteFrame>;
 }
 
+interface ControlPlaneData {
+  tenants: Array<{ id: string; subdomain: string; displayName: string; active: boolean; enabledModuleCount: number; createdAt: string }>;
+  audit: Array<{ id: number; actorUsername: string; action: string; tenantId: string | null; createdAt: string }>;
+}
+
 function OwnerDashboard() {
   const [, setLocation] = useLocation();
-  const [state, setState] = useState<'loading' | 'ready' | 'blocked'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'blocked' | 'error'>('loading');
   const [username, setUsername] = useState('');
-  useEffect(() => { void fetch('/api/owner/me').then(async (response) => { if (!response.ok) { setState('blocked'); return; } setUsername((await response.json()).username); setState('ready'); }).catch(() => setState('blocked')); }, []);
+  const [controlPlane, setControlPlane] = useState<ControlPlaneData | null>(null);
+  useEffect(() => {
+    void fetch('/api/owner/me').then(async (response) => {
+      if (!response.ok) { setState('blocked'); return; }
+      setUsername((await response.json()).username);
+      const controlResponse = await fetch('/api/owner/control-plane');
+      if (!controlResponse.ok) throw new Error('control-plane-unavailable');
+      setControlPlane(await controlResponse.json() as ControlPlaneData);
+      setState('ready');
+    }).catch(() => setState('error'));
+  }, []);
   useEffect(() => { if (state === 'blocked') setLocation('/owner/login'); }, [state, setLocation]);
   if (state === 'loading' || state === 'blocked') return <RouteFrame eyebrow="BisBy / owner" title="Loading control center."><div /></RouteFrame>;
-  return <RouteFrame eyebrow="BisBy / owner" title="Platform control center"><div className="mt-10 flex items-center justify-between"><p className="text-sm text-[hsl(var(--muted-foreground))]">Signed in as {username}</p><button onClick={() => { void fetch('/api/owner/logout', { method: 'POST' }).finally(() => setLocation('/')); }} className="font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Sign out</button></div><div className="mt-8 grid gap-4 md:grid-cols-2"><div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Tenant registry</p><p className="mt-4 text-xl font-semibold">Provision and manage tenants</p><p className="mt-3 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Tenant creation requires a master-registry provisioning workflow; this dashboard establishes the protected owner boundary.</p></div><div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Module control</p><p className="mt-4 text-xl font-semibold">Assign modules and administrators</p><p className="mt-3 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Module activation and tenant-admin management will operate through the master control plane.</p></div></div></RouteFrame>;
+  if (state === 'error') return <RouteFrame eyebrow="BisBy / owner" title="Control plane unavailable."><p className="mt-8 text-sm text-[hsl(var(--muted-foreground))]">Apply the phase-1 master database migration, then reload this page.</p></RouteFrame>;
+  return <RouteFrame eyebrow="BisBy / owner" title="Platform control center">
+    <div className="mt-10 flex items-center justify-between"><p className="text-sm text-[hsl(var(--muted-foreground))]">Signed in as {username}</p><button onClick={() => { void fetch('/api/owner/logout', { method: 'POST' }).finally(() => setLocation('/')); }} className="font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Sign out</button></div>
+    <section className="mt-8 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><div className="flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Tenant registry</p><h2 className="mt-3 text-xl font-semibold">Registered tenants</h2></div><span className="font-mono text-xs text-[hsl(var(--muted-foreground))]">{controlPlane?.tenants.length ?? 0} total</span></div><div className="mt-6 divide-y divide-[hsl(var(--border))]">{controlPlane?.tenants.map((tenant) => <div key={tenant.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-medium">{tenant.displayName}</p><p className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{tenant.subdomain}.bisby.pro · {tenant.enabledModuleCount} active modules</p></div><StatusPill tone={tenant.active ? 'good' : 'warn'}>{tenant.active ? 'active' : 'inactive'}</StatusPill></div>)}{controlPlane?.tenants.length === 0 && <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">No tenants are registered yet.</p>}</div></section>
+    <section className="mt-5 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Audit information</p><h2 className="mt-3 text-xl font-semibold">Recent owner activity</h2><div className="mt-5 divide-y divide-[hsl(var(--border))]">{controlPlane?.audit.map((entry) => <div key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><span>{entry.action}</span><span className="font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{new Date(entry.createdAt).toLocaleString()}</span></div>)}{controlPlane?.audit.length === 0 && <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">No recorded control-plane actions yet.</p>}</div></section>
+    <p className="mt-6 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Phase 1 provides live registry visibility and immutable access auditing. Tenant provisioning, activation controls, modules, and administrator assignment follow in the next phases.</p>
+  </RouteFrame>;
 }
 
 function Home() {
