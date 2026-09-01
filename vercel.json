@@ -12,14 +12,14 @@
       "has": [
         {
           "type": "host",
-          "value": "^(?<tenant>[^.]+)\\.bisby\\.pro$"
+          "value": "^(?<tenant>[^.]+)\.bisby\.pro$"
         }
       ],
       "destination": "/:path*"
     },
     {
-      "source": "/(:path*)",
-      "destination": "/$1"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
