@@ -45,6 +45,9 @@ export const OwnerLoginBody = z.object({
   password: z.string().min(1).max(255),
 });
 
+export const TenantLifecycleBody = z.object({ active: z.boolean() });
+export const TenantModuleLifecycleBody = z.object({ active: z.boolean() });
+
 export const ProvisionTenantBody = z.object({
   subdomain: tenantSubdomain,
   displayName: z.string().trim().min(1).max(255),
