@@ -13,6 +13,7 @@ declare global {
       authenticatedUser?: AuthenticatedLocalUser;
       tenantContext?: TenantContext;
       tenantDatabase?: Knex;
+      ownerUsername?: string;
     }
   }
 }

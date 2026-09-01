@@ -2,9 +2,10 @@
 
 ## Scope of this foundation
 
-This repository currently contains the Node.js and TypeScript service skeleton for
-BisBy. It defines the boundaries required for the next implementation phase
-without creating tenant database connections, migrations, or business modules yet.
+This repository contains the BisBy tenant-routing service, tenant-local
+authentication, root-host owner control plane, and live physical database
+provisioning workflow. Business functionality inside modules remains outside
+this foundation.
 
 ## Database-per-tenant model
 
@@ -50,8 +51,8 @@ returning a successful authorization response. Missing authentication returns
 
 ## Hostname rules
 
-- Production tenant hosts use `<subdomain>.bisby.com`.
-- `bisby.com`, `www.bisby.com`, localhost, and local IP hosts do not identify a
+- Production tenant hosts use `<subdomain>.bisby.pro`.
+- `bisby.pro`, `www.bisby.pro`, localhost, and local IP hosts do not identify a
   tenant.
 - Host parsing must use the request's trusted host configuration and must not
   trust an arbitrary client-supplied database URL or tenant ID.
@@ -79,12 +80,26 @@ The session cookie is host-only and never includes a tenant database connection
 reference. A session presented to a different resolved tenant is rejected and
 cleared.
 
+Platform-owner authentication is a separate root-host boundary:
+
+- owner credentials come from `BISBY_OWNER_USERNAME` and
+  `BISBY_OWNER_PASSWORD`;
+- the owner session is a separate HMAC-signed, HTTP-only cookie;
+- `/api/owner/*` returns 404 on tenant subdomains;
+- tenant-local sessions do not authorize owner routes;
+- control-plane browser responses never include physical database names or
+  connection parameters.
+- every owner mutation requires a root-host `Origin`/`Referer` and a custom
+  owner-request header, preventing tenant subdomains and plain HTML forms from
+  triggering owner actions with an existing cookie.
+
 ## Migrations
 
 The API package contains two Knex migration tracks:
 
 - `migrate:master` creates the global platform routing tables and registers the
-  eight canonical modules in the master database.
+  eight canonical modules in the master database. It also creates the
+  append-only `platform_audit_log`.
 - `migrate:tenant` creates `core_admin` plus `module_a` through `module_h` in a
   tenant database. The reusable blueprint creates
   `core_admin.client_accounts`, `core_admin.tab_permissions`, and one
@@ -97,6 +112,26 @@ All PostgreSQL connections use the server-side `PGUSER`, `PGPASSWORD`,
 initial provisioning command instead targets the two distinct physical
 databases named by `BISBY_DESIGN_DB_NAME` and `BISBY_CLIENTALPHA_DB_NAME`.
 Tenant credentials are not hard-coded or exposed to clients.
+
+## Live tenant provisioning
+
+An authenticated owner can provision a tenant from the root control plane. The
+server validates the tenant and database names, then:
+
+1. takes a master-database advisory lock for the tenant subdomain;
+2. verifies the subdomain and physical database name are unused;
+3. connects to `BISBY_ADMIN_DB_NAME` (or `BISBY_MASTER_DB_NAME`, then
+   `postgres`) and
+   issues `CREATE DATABASE` outside a transaction;
+4. applies the tenant blueprint to the new physical database;
+5. creates the initial tenant-local administrator and workspace permissions;
+6. registers the tenant and activates all eight modules in the master database;
+7. records a sanitized owner audit event.
+
+If migration, seeding, or registration fails after database creation, BisBy
+attempts to remove the new physical database. A cleanup refusal is reported
+explicitly and audited as requiring manual cleanup; provider errors and
+credentials are not returned to the browser.
 
 Run the initial seed with:
 
@@ -116,7 +151,7 @@ logged.
 
 ## Vercel routing
 
-`vercel.json` matches tenant hosts shaped like `<subdomain>.bisby.com` and
+`vercel.json` matches tenant hosts shaped like `<subdomain>.bisby.pro` and
 rewrites their requests to the catch-all Express function at `/api/:path*`.
 The catch-all entry imports the same Express app used by the local API
 workflow, so hostname parsing and database routing remain centralized. The

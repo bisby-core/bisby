@@ -1,6 +1,6 @@
 import type { Knex } from "knex";
 import { createMasterDatabase, createPostgresClient } from "./knex";
-import { migrationConfig } from "./migrate";
+import { migrationConfig } from "./migration-config";
 import { hashPassword } from "../auth/password";
 import {
   MODULE_SCHEMA_NAMES,

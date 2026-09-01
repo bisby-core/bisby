@@ -34,6 +34,8 @@ import {
   useLocation,
   Router as WouterRouter,
 } from 'wouter';
+import { OwnerControlPlane } from '@/owner/OwnerControlPlane';
+import { BISBY_ROOT_DOMAIN } from '@/config';
 
 const queryClient = new QueryClient();
 
@@ -63,7 +65,7 @@ const workspaceKeyFor = (number: string): WorkspaceKey | null => {
 
 const tenantNameFromHostname = (hostname: string): string | null => {
   const normalizedHostname = hostname.toLowerCase().replace(/\.$/, '');
-  const suffix = '.bisby.pro';
+  const suffix = `.${BISBY_ROOT_DOMAIN}`;
   if (!normalizedHostname.endsWith(suffix)) return null;
 
   const subdomain = normalizedHostname.slice(0, -suffix.length);
@@ -74,6 +76,18 @@ const tenantNameFromHostname = (hostname: string): string | null => {
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+};
+
+const isRootHostname = (hostname: string): boolean => {
+  const normalizedHostname = hostname.toLowerCase().replace(/\.$/, '');
+  return (
+    normalizedHostname === BISBY_ROOT_DOMAIN ||
+    normalizedHostname === `www.${BISBY_ROOT_DOMAIN}` ||
+    (import.meta.env.DEV &&
+      (normalizedHostname === 'localhost' ||
+        normalizedHostname === '127.0.0.1' ||
+        normalizedHostname.endsWith('.replit.dev')))
+  );
 };
 
 const getErrorStatus = (error: unknown): number | undefined => {
@@ -193,6 +207,9 @@ function RouteFrame({ eyebrow, title, children, footer }: { eyebrow: string; tit
 
 function Home() {
   const health = useHealthCheck();
+  if (isRootHostname(window.location.hostname)) {
+    return <OwnerControlPlane rootDomain={BISBY_ROOT_DOMAIN} />;
+  }
   const healthStatus = health.isLoading ? 'checking' : health.isError ? 'unavailable' : 'reachable';
   const tenantName = tenantNameFromHostname(window.location.hostname);
   return (
@@ -204,7 +221,7 @@ function Home() {
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant URL format</p>
               <p className="mt-5 break-all font-mono text-lg leading-relaxed text-[hsl(var(--foreground))] md:text-2xl">
                 <span className="text-[hsl(var(--accent))]">{'{tenant}'}</span>
-                <span className="text-[hsl(var(--muted-foreground))]">.bisby.pro/</span>
+                <span className="text-[hsl(var(--muted-foreground))]">.{BISBY_ROOT_DOMAIN}/</span>
                 <span className="text-[hsl(var(--secondary-foreground))]">a</span>
                 <span className="text-[hsl(var(--muted-foreground))]">/ws-</span>
                 <span className="text-[hsl(var(--secondary-foreground))]">1</span>
@@ -447,7 +464,7 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
         </div>
         <div className="flex flex-wrap items-center gap-5 md:justify-end">
           <div className="font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:text-right">
-            <span className="text-[hsl(var(--foreground))]">{subdomain}.bisby.pro</span>
+             <span className="text-[hsl(var(--foreground))]">{subdomain}.{BISBY_ROOT_DOMAIN}</span>
             <br />
             tenant {tenantId}
           </div>

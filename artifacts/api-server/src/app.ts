@@ -15,11 +15,14 @@ import { TenantConnectionManager } from "./tenancy/tenant-connection-manager";
 import healthRouter from "./routes/health";
 import authRouter from "./routes/auth";
 import { createLocalAuthMiddleware } from "./auth/local-auth-middleware";
+import { createOwnerAuthMiddleware } from "./owner/auth";
+import ownerRouter from "./routes/owner";
 
 const app: Express = express();
 const masterDatabase = createMasterDatabase();
 const tenantRegistry = new KnexTenantRegistry(masterDatabase);
 const tenantConnections = new TenantConnectionManager();
+const rootDomain = process.env["BISBY_ROOT_DOMAIN"] ?? "bisby.pro";
 
 app.use(
   pinoHttp({
@@ -48,12 +51,14 @@ app.set("trust proxy", 1);
 
 // Health is intentionally available without tenant resolution.
 app.use("/api", healthRouter);
+app.use("/api", createOwnerAuthMiddleware(rootDomain));
+app.use("/api/owner", ownerRouter(masterDatabase, rootDomain));
 app.use(
   "/api",
   createDatabaseRouter({
     registry: tenantRegistry,
     connections: tenantConnections,
-    rootDomain: process.env["BISBY_ROOT_DOMAIN"] ?? "bisby.com",
+    rootDomain,
   }),
 );
 app.use("/api", createLocalAuthMiddleware());

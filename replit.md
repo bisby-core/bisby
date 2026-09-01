@@ -14,10 +14,15 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - Required global routing database name: `BISBY_MASTER_DB_NAME`
 - Tenant blueprint migration env: `BISBY_TENANT_DB_NAME` (when migrating a specific tenant database)
 - Local session secret: `SESSION_SECRET`
+- Root owner credentials: `BISBY_OWNER_USERNAME`, `BISBY_OWNER_PASSWORD`
+- Optional PostgreSQL maintenance database used to create physical tenant databases: `BISBY_ADMIN_DB_NAME` (falls back to `BISBY_MASTER_DB_NAME`, then `postgres`)
+- Optional root hostname override: `BISBY_ROOT_DOMAIN` (defaults to `bisby.pro`)
+- Frontend root hostname: `VITE_BISBY_ROOT_DOMAIN` (defaults to `bisby.pro`; keep it aligned with `BISBY_ROOT_DOMAIN`)
 - Initial seed tenant databases: `BISBY_DESIGN_DB_NAME`, `BISBY_CLIENTALPHA_DB_NAME`
 - Optional seed password: `BISBY_DEFAULT_ADMIN_PASSWORD` (required in production; development/test default is intentionally `password123`)
 - `pnpm --filter @workspace/api-server run seed:tenants` — migrate and idempotently seed both initial tenants
 - `pnpm --filter @workspace/api-server run test:auth` — run password and signed-session tests
+- `pnpm --filter @workspace/api-server run test:owner` — run owner-session, root-host, and provisioning-input tests
 
 ## Stack
 
@@ -44,10 +49,11 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 - Tenant selection is request-scoped and derived from the incoming wildcard hostname before tenant-bound handlers run.
 - Tenant database credentials are never intended for browser exposure; the server resolves and owns tenant connections.
 - Authentication uses tenant-local database-backed username/password authentication with signed, tenant-bound sessions and no OAuth provider dependency.
+- Platform-owner authentication is separate, restricted to the root host, and controls live physical database provisioning.
 
 ## Product
 
-BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.com`.
+BisBy provides tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.pro`.
 
 ## User preferences
 
@@ -58,6 +64,7 @@ BisBy will provide tenant-isolated SaaS modules behind wildcard subdomains such 
 - Do not connect to a tenant database until the master registry has resolved and validated the tenant context.
 - Do not accept a client-provided database URL or tenant identifier as an authority for routing.
 - Keep module boundaries explicit; module activation in the master registry controls future module access.
+- The PostgreSQL role used for live provisioning must have `CREATEDB` on the configured server; provisioning never accepts connection details from the browser.
 
 ## Pointers
 

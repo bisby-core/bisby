@@ -13,6 +13,16 @@ export interface PostgresClientOptions {
   readonly environment?: NodeJS.ProcessEnv;
 }
 
+export interface PostgresConnectionConfig {
+  readonly user: string;
+  readonly password: string;
+  readonly host: string;
+  readonly port: number;
+  readonly database: string;
+  readonly ssl: false | { readonly rejectUnauthorized: false };
+  readonly connectionTimeoutMillis: number;
+}
+
 function requiredEnvironment(
   name: string,
   environment: NodeJS.ProcessEnv,
@@ -56,23 +66,30 @@ function resolveSsl(
   return { rejectUnauthorized: false };
 }
 
+export function postgresConnectionConfig(
+  databaseName: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): PostgresConnectionConfig {
+  const portValue = requiredEnvironment("PGPORT", environment);
+  return {
+    user: requiredEnvironment("PGUSER", environment),
+    password: requiredEnvironment("PGPASSWORD", environment),
+    host: requiredEnvironment("PGHOST", environment),
+    port: parsePort(portValue),
+    database: validateDatabaseName(databaseName),
+    ssl: resolveSsl(environment["PGSSLMODE"]),
+    connectionTimeoutMillis: 10_000,
+  };
+}
+
 export function createPostgresClient(
   options: PostgresClientOptions,
 ): Knex {
   const environment = options.environment ?? process.env;
-  const portValue = requiredEnvironment("PGPORT", environment);
 
   return knex({
     client: "pg",
-    connection: {
-      user: requiredEnvironment("PGUSER", environment),
-      password: requiredEnvironment("PGPASSWORD", environment),
-      host: requiredEnvironment("PGHOST", environment),
-      port: parsePort(portValue),
-      database: validateDatabaseName(options.databaseName),
-      ssl: resolveSsl(environment["PGSSLMODE"]),
-      connectionTimeoutMillis: 10_000,
-    },
+    connection: postgresConnectionConfig(options.databaseName, environment),
     pool: options.pool ?? DEFAULT_POOL,
     acquireConnectionTimeout: 10_000,
   });
