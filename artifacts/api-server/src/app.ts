@@ -14,9 +14,9 @@ import { createDatabaseRouter } from "./tenancy/database-router";
 import { TenantConnectionManager } from "./tenancy/tenant-connection-manager";
 import healthRouter from "./routes/health";
 import authRouter from "./routes/auth";
+import ownerRouter from "./routes/owner";
 import { createLocalAuthMiddleware } from "./auth/local-auth-middleware";
 import { createOwnerAuthMiddleware } from "./owner/auth";
-import ownerRouter from "./routes/owner";
 
 const app: Express = express();
 const masterDatabase = createMasterDatabase();
