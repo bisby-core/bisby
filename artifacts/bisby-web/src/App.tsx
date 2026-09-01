@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -189,6 +189,49 @@ function RouteFrame({ eyebrow, title, children, footer }: { eyebrow: string; tit
       </div>
     </div>
   );
+}
+
+function PlatformHome() {
+  return (
+    <RouteFrame eyebrow="BisBy / platform" title="Tenant-isolated operations, built to scale.">
+      <div className="mt-10 flex flex-wrap gap-3">
+        <Link href="/owner/login" className="inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))]" data-testid="link-owner-login"><LockKeyhole className="h-3.5 w-3.5" /> Owner sign in</Link>
+        <a href="#modules" className="inline-flex items-center gap-2 border border-[hsl(var(--border))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Explore modules <ArrowUpRight className="h-3.5 w-3.5" /></a>
+      </div>
+      <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
+        <section className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">The BisBy model</p><p className="mt-6 max-w-2xl text-2xl font-semibold leading-tight tracking-[-0.035em]">Every tenant operates from a dedicated subdomain and physically separate database.</p><p className="mt-5 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Platform controls stay with BisBy. Tenant users only access the applications, workspaces, and modules assigned to their organization.</p></section>
+        <section className="bg-[hsl(var(--primary))] p-6 text-[hsl(var(--primary-foreground))] md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--primary-foreground)/.58)]">Tenant entry</p><p className="mt-10 text-2xl font-semibold tracking-[-0.035em]">Your work stays local to your tenant.</p><p className="mt-4 text-sm leading-6 text-[hsl(var(--primary-foreground)/.64)]">Use your organization’s BisBy subdomain to sign in and open assigned workspaces.</p></section>
+      </div>
+      <section id="modules" className="mt-12 border-t border-[hsl(var(--border))] pt-6"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Platform modules</p><div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-4">{moduleLetters.map((letter) => <div key={letter} className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.6)] p-4"><p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">Module {letter}</p><p className="mt-5 text-sm font-medium">Explicit access boundaries</p></div>)}</div></section>
+    </RouteFrame>
+  );
+}
+
+function RootHome() {
+  return tenantNameFromHostname(window.location.hostname) ? <Home /> : <PlatformHome />;
+}
+
+function OwnerLogin() {
+  const [, setLocation] = useLocation();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
+  const [pending, setPending] = useState(false);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setPending(true); setError(false);
+    try { const response = await fetch('/api/owner/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); if (!response.ok) throw new Error('invalid'); setLocation('/owner/dashboard'); } catch { setError(true); } finally { setPending(false); }
+  };
+  return <RouteFrame eyebrow="BisBy / owner access" title="Owner Control Center"><form onSubmit={submit} className="mt-12 max-w-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 md:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Platform owner only</p><label className="mt-8 block font-mono text-[10px] uppercase tracking-[0.15em]" htmlFor="owner-username">Username</label><input id="owner-username" required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3" /><label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.15em]" htmlFor="owner-password">Password</label><input id="owner-password" type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3" />{error && <p className="mt-5 text-sm text-[hsl(var(--destructive))]">The username or password was not accepted.</p>}<button disabled={pending} className="mt-8 inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))]"><LogIn className="h-3.5 w-3.5" />{pending ? 'Signing in' : 'Sign in'}</button></form></RouteFrame>;
+}
+
+function OwnerDashboard() {
+  const [, setLocation] = useLocation();
+  const [state, setState] = useState<'loading' | 'ready' | 'blocked'>('loading');
+  const [username, setUsername] = useState('');
+  useEffect(() => { void fetch('/api/owner/me').then(async (response) => { if (!response.ok) { setState('blocked'); return; } setUsername((await response.json()).username); setState('ready'); }).catch(() => setState('blocked')); }, []);
+  useEffect(() => { if (state === 'blocked') setLocation('/owner/login'); }, [state, setLocation]);
+  if (state === 'loading' || state === 'blocked') return <RouteFrame eyebrow="BisBy / owner" title="Loading control center."><div /></RouteFrame>;
+  return <RouteFrame eyebrow="BisBy / owner" title="Platform control center"><div className="mt-10 flex items-center justify-between"><p className="text-sm text-[hsl(var(--muted-foreground))]">Signed in as {username}</p><button onClick={() => { void fetch('/api/owner/logout', { method: 'POST' }).finally(() => setLocation('/')); }} className="font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">Sign out</button></div><div className="mt-8 grid gap-4 md:grid-cols-2"><div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Tenant registry</p><p className="mt-4 text-xl font-semibold">Provision and manage tenants</p><p className="mt-3 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Tenant creation requires a master-registry provisioning workflow; this dashboard establishes the protected owner boundary.</p></div><div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">Module control</p><p className="mt-4 text-xl font-semibold">Assign modules and administrators</p><p className="mt-3 text-sm leading-6 text-[hsl(var(--muted-foreground))]">Module activation and tenant-admin management will operate through the master control plane.</p></div></div></RouteFrame>;
 }
 
 function Home() {
@@ -554,7 +597,9 @@ function Router() {
     // survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={RootHome} />
+        <Route path="/owner/login" component={OwnerLogin} />
+        <Route path="/owner/dashboard" component={OwnerDashboard} />
         <Route path="/login" component={Login} />
         <Route path="/:moduleLetter/:workspaceKey" component={WorkspaceRoute} />
         <Route path="/:moduleLetter" component={ModuleRoute} />
