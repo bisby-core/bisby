@@ -15,10 +15,10 @@
           "value": "^(?<tenant>[^.]+)\.bisby\.pro$"
         }
       ],
-      "destination": "/:path*"
+      "destination": "/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]
