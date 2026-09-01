@@ -67,6 +67,7 @@ const tenantNameFromHostname = (hostname: string): string | null => {
   if (!normalizedHostname.endsWith(suffix)) return null;
 
   const subdomain = normalizedHostname.slice(0, -suffix.length);
+  if (subdomain === 'www') return null;
   if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(subdomain)) return null;
 
   return subdomain
