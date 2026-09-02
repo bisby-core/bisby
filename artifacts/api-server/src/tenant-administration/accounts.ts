@@ -49,9 +49,10 @@ export interface ManagedTenantAccount {
   readonly createdAt: string;
 }
 
-export interface TenantAdministrationSnapshot {
+export interface TenantAdminSnapshot {
   readonly tenantId: string;
   readonly subdomain: string;
+  readonly customerName: string;
   readonly enabledModules: readonly ModuleSchemaName[];
   readonly currentUser: {
     readonly accountId: string;
@@ -83,7 +84,8 @@ export class TenantAdministrationError extends Error {
       | "administration_forbidden"
       | "managed_account_not_found"
       | "managed_account_conflict"
-      | "invalid_account_assignment",
+      | "invalid_account_assignment"
+      | "invalid_workspace_hierarchy",
     message: string,
   ) {
     super(message);
@@ -163,7 +165,7 @@ async function validateCreateAssignment(
   if (!enabledModules.includes(input.moduleKey)) {
     throw new TenantAdministrationError(
       "invalid_account_assignment",
-      "The selected module is not enabled for this tenant.",
+      "The selected module is not enabled for this customer space.",
     );
   }
   if (input.role !== "module_admin" && input.workspaceKeys.length === 0) {
@@ -198,7 +200,7 @@ function assertCreateAssignmentScope(
   if (!enabledModules.includes(input.moduleKey)) {
     throw new TenantAdministrationError(
       "invalid_account_assignment",
-      "The selected module is not enabled for this tenant.",
+      "The selected module is not enabled for this customer space.",
     );
   }
   if (input.role !== "module_admin" && input.workspaceKeys.length === 0) {
@@ -273,17 +275,18 @@ async function recordTenantAudit(
   });
 }
 
-export async function getTenantAdministrationSnapshot(
+export async function getTenantAdminSnapshot(
   database: Knex,
   actor: AuthenticatedLocalUser,
   tenantId: string,
   subdomain: string,
+  customerName: string,
   enabledModules: readonly ModuleSchemaName[],
-): Promise<TenantAdministrationSnapshot> {
+): Promise<TenantAdminSnapshot> {
   if (managedRolesFor(actor).length === 0) {
     throw new TenantAdministrationError(
       "administration_forbidden",
-      "This account does not have tenant administration access.",
+      "This account does not have organization administration access.",
     );
   }
   if (
@@ -292,9 +295,13 @@ export async function getTenantAdministrationSnapshot(
   ) {
     throw new TenantAdministrationError(
       "administration_forbidden",
-      "This module is not active for the tenant.",
+      "This module is not active for this customer space.",
     );
   }
+  const visibleRoles =
+    actor.role === "tenant_admin"
+      ? ["module_admin", "module_staff"]
+      : managedRolesFor(actor);
   let query = database<ManagedAccountRow>("core_admin.client_accounts")
     .select(
       "id",
@@ -306,7 +313,7 @@ export async function getTenantAdministrationSnapshot(
       "must_change_password",
       "created_at",
     )
-    .whereIn("account_type", managedRolesFor(actor));
+    .whereIn("account_type", visibleRoles);
   if (actor.role === "module_admin") {
     query = query.andWhere("module_key", actor.moduleKey);
   } else {
@@ -339,6 +346,7 @@ export async function getTenantAdministrationSnapshot(
   return {
     tenantId,
     subdomain,
+    customerName,
     enabledModules,
     currentUser: {
       accountId: actor.accountId,
@@ -419,7 +427,7 @@ export async function createManagedTenantAccount(
         transaction,
         actor,
         input.role === "module_admin"
-          ? "tenant.module_administrator.created"
+          ? "tenant.module_admin.created"
           : input.role === "module_staff"
             ? "tenant.module_staff.created"
             : "tenant.module_client.created",
@@ -434,13 +442,11 @@ export async function createManagedTenantAccount(
       return serializeAccount(account, workspaceKeys);
     });
   } catch (error) {
-    if (
-      error instanceof TenantAdministrationError ||
-      (error && typeof error === "object" && "code" in error && error.code === "23505")
-    ) {
+    if (error instanceof TenantAdministrationError) throw error;
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
       throw new TenantAdministrationError(
         "managed_account_conflict",
-        "That username is already in use in this tenant.",
+        "That username is already in use in this customer space.",
       );
     }
     throw error;
@@ -457,7 +463,7 @@ export async function updateManagedTenantAccountAccess(
   if (actor.role !== "module_admin" || !actor.moduleKey) {
     throw new TenantAdministrationError(
       "administration_forbidden",
-      "Only a module administrator can change staff or client access.",
+      "Only a module admin can change module staff or client access.",
     );
   }
   assertActiveAdministrationModule(actor, actor.moduleKey, enabledModules);
@@ -550,9 +556,13 @@ export async function updateManagedTenantAccountStatus(
   active: boolean,
   enabledModules: readonly ModuleSchemaName[],
 ): Promise<{ readonly accountId: string; readonly active: boolean }> {
-  if (actor.role === "module_admin") {
-    assertActiveAdministrationModule(actor, actor.moduleKey, enabledModules);
+  if (actor.role !== "module_admin") {
+    throw new TenantAdministrationError(
+      "administration_forbidden",
+      "Only a module admin can change module staff or client account status.",
+    );
   }
+  assertActiveAdministrationModule(actor, actor.moduleKey, enabledModules);
   return database.transaction(async (transaction) => {
     const account = await loadManageableAccount(transaction, actor, accountId, true);
     assertActiveAdministrationModule(actor, account.module_key, enabledModules);
@@ -567,6 +577,46 @@ export async function updateManagedTenantAccountStatus(
       { username: account.username, role: account.account_type, moduleKey: account.module_key, active },
     );
     return { accountId: account.id, active };
+  });
+}
+
+export async function deleteManagedTenantAccount(
+  database: Knex,
+  actor: AuthenticatedLocalUser,
+  accountId: string,
+  enabledModules: readonly ModuleSchemaName[],
+): Promise<{ readonly accountId: string; readonly deleted: true }> {
+  if (actor.role !== "module_admin") {
+    throw new TenantAdministrationError(
+      "administration_forbidden",
+      "Only a module admin can delete module staff or client accounts.",
+    );
+  }
+  assertActiveAdministrationModule(actor, actor.moduleKey, enabledModules);
+  return database.transaction(async (transaction) => {
+    const account = await loadManageableAccount(transaction, actor, accountId, true);
+    assertActiveAdministrationModule(actor, account.module_key, enabledModules);
+    await recordTenantAudit(
+      transaction,
+      actor,
+      "tenant.managed_account.deleted",
+      account.id,
+      {
+        username: account.username,
+        role: account.account_type,
+        moduleKey: account.module_key,
+      },
+    );
+    const deleted = await transaction("core_admin.client_accounts")
+      .where({ id: account.id })
+      .delete();
+    if (deleted !== 1) {
+      throw new TenantAdministrationError(
+        "managed_account_not_found",
+        "That managed account was not found.",
+      );
+    }
+    return { accountId: account.id, deleted: true };
   });
 }
 

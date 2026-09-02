@@ -107,9 +107,10 @@ function authRouter(masterDatabase: Knex): IRouter {
       tenantId: req.tenantContext.tenantId,
       username: account.username,
       role,
-      moduleKey: role === "tenant_admin" ? null : assignments.moduleKey,
-      workspaceKeys: assignments.workspaceKeys,
+      moduleKey: role === "tenant_admin" || role === "tenant_admin_staff" ? null : assignments.moduleKey,
+      workspaceKeys: role === "tenant_admin_staff" ? assignments.tenantAdminStaffWorkspaceKeys : assignments.workspaceKeys,
       workspaceAssignments: assignments.workspaceAssignments,
+      tenantAdminStaffWorkspaceKeys: assignments.tenantAdminStaffWorkspaceKeys,
       requiresPasswordChange: account.must_change_password,
     };
 
@@ -131,8 +132,8 @@ function authRouter(masterDatabase: Knex): IRouter {
         tenantId: req.tenantContext.tenantId,
         role,
         username: account.username,
-        moduleKey: role === "tenant_admin" ? null : assignments.moduleKey,
-        workspaceKeys: assignments.workspaceKeys,
+        moduleKey: role === "tenant_admin" || role === "tenant_admin_staff" ? null : assignments.moduleKey,
+        workspaceKeys: role === "tenant_admin_staff" ? assignments.tenantAdminStaffWorkspaceKeys : assignments.workspaceKeys,
         requiresPasswordChange: account.must_change_password,
       }),
     );

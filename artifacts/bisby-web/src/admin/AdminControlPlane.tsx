@@ -1,22 +1,26 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetCurrentUser,
-  useGetTenantAdministration,
+  useGetTenantAdmin,
   useCreateManagedTenantAccount,
   useUpdateManagedTenantAccountStatus,
+  useDeleteManagedTenantAccount,
   useUpdateManagedTenantAccountAccess,
   useResetManagedTenantAccountPassword,
   useLogout,
-  getGetTenantAdministrationQueryKey,
+  getGetTenantAdminQueryKey,
   ModuleKey,
+  type AuthenticatedLocalUser,
   type ManagedTenantAccountAccessRequestRole,
   type ManagedTenantAccountCreateRequestRole,
   type ManagedTenantAccount,
   type ManagedWorkspaceOption,
 } from '@workspace/api-client-react';
 import { ModuleWorkspaceControl, TenantWorkspaceControl } from '@/admin/WorkspaceControl';
+import { TenantAdminStaffControl } from '@/admin/TenantAdminStaffControl';
+import { StaffWorkspaceCard } from '@/admin/StaffWorkspaceAssignment';
 import {
   ShieldAlert,
   UserPlus,
@@ -25,6 +29,7 @@ import {
   Power,
   Key,
   Activity,
+  ArrowUpRight,
   Pencil,
 } from 'lucide-react';
 import {
@@ -32,16 +37,28 @@ import {
   StatusPill,
   getErrorStatus,
   LoadingState,
-  tenantNameFromHostname,
+  useCustomerName,
 } from '@/App';
 
-export function AdminControlPlane() {
+export function canAccessAdministrationRoute(
+  user: Pick<AuthenticatedLocalUser, 'role' | 'moduleKey'>,
+  moduleLetter?: string,
+): boolean {
+  if (!moduleLetter) return user.role === 'tenant_admin';
+  return (
+    user.role === 'tenant_admin' ||
+    (user.role === 'module_admin' &&
+      user.moduleKey === `module_${moduleLetter.toLowerCase()}`)
+  );
+}
+
+export function AdminControlPlane({ moduleLetter }: { moduleLetter?: string }) {
   const currentUser = useGetCurrentUser();
   const [, setLocation] = useLocation();
-  const tenantName = tenantNameFromHostname(window.location.hostname);
-  const administrationTitle = tenantName
-    ? `${tenantName} Administration`
-    : 'Tenant Administration';
+  const customerName = useCustomerName();
+  const administrationTitle = moduleLetter
+    ? `Module ${moduleLetter.toUpperCase()} Admin Controls`
+    : `${customerName ?? 'Tenant'} Admin Controls`;
 
   useEffect(() => {
     if (currentUser.isError) {
@@ -74,10 +91,7 @@ export function AdminControlPlane() {
     return null;
   }
 
-  if (
-    currentUser.data.role !== 'tenant_admin' &&
-    currentUser.data.role !== 'module_admin'
-  ) {
+  if (!canAccessAdministrationRoute(currentUser.data, moduleLetter)) {
     return (
       <RouteFrame eyebrow="BisBy / admin" title={administrationTitle}>
         <div className="mt-12 border border-[hsl(var(--accent)/.52)] bg-[hsl(var(--card)/.72)] p-6 md:p-8">
@@ -88,24 +102,33 @@ export function AdminControlPlane() {
             </span>
           </div>
           <p className="mt-4 text-sm text-[hsl(var(--muted-foreground))]">
-            You do not have administration rights for this tenant.
+            {moduleLetter
+              ? `Only the Module ${moduleLetter.toUpperCase()} module admin or this tenant's tenant admin can access Module ${moduleLetter.toUpperCase()} Admin Controls.`
+              : `Only this tenant's tenant admin can access ${customerName ?? 'Tenant'} Admin Controls.`}
           </p>
         </div>
       </RouteFrame>
     );
   }
 
-  return <AdminControlPlaneContent title={administrationTitle} />;
+  return <AdminControlPlaneContent title={administrationTitle} moduleLetter={moduleLetter} />;
 }
 
-function AdminControlPlaneContent({ title }: { title: string }) {
-  const adminData = useGetTenantAdministration();
+function AdminControlPlaneContent({ title, moduleLetter }: { title: string; moduleLetter?: string }) {
+  const adminData = useGetTenantAdmin();
   const [isCreating, setIsCreating] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleKey | null>(null);
-  const [activeTab, setActiveTab] = useState<'accounts' | 'workspaces'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'module-staff-workspace-assignment' | 'workspaces' | 'tenant-admin-staff' | 'tenant-admin-staff-workspace-assignment' | 'tenant-admin-staff-workspaces'>(
+    moduleLetter ? 'workspaces' : 'accounts'
+  );
   const queryClient = useQueryClient();
   const logout = useLogout();
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setActiveTab(moduleLetter ? 'workspaces' : 'accounts');
+    setIsCreating(false);
+  }, [moduleLetter]);
 
   const handleLogout = async () => {
     await logout.mutateAsync();
@@ -116,7 +139,7 @@ function AdminControlPlaneContent({ title }: { title: string }) {
   if (adminData.isLoading) {
     return (
       <RouteFrame eyebrow="BisBy / admin" title={title}>
-        <LoadingState label="Tenant Data" />
+        <LoadingState label="Organization data" />
       </RouteFrame>
     );
   }
@@ -140,36 +163,82 @@ function AdminControlPlaneContent({ title }: { title: string }) {
   if (!data?.currentUser) return null;
   const role = data.currentUser.role;
   const selectedTab = activeTab;
+
+  const isTenantAdminAtRoot = role === 'tenant_admin' && !moduleLetter;
+  const isTenantAdminAtModule = role === 'tenant_admin' && !!moduleLetter;
+  const isModuleAdmin = role === 'module_admin';
+
+  const activeModuleKey = moduleLetter ? `module_${moduleLetter.toLowerCase()}` as ModuleKey : null;
+
   const selectedModule =
-    role === 'tenant_admin'
+    isTenantAdminAtRoot
       ? activeModule && data.enabledModules.includes(activeModule)
         ? activeModule
         : data.enabledModules[0] ?? null
-      : data.currentUser.moduleKey;
+      : activeModuleKey ?? data.currentUser.moduleKey;
 
   const filteredUsers = data.users.filter((u) => {
     if (!selectedModule || u.moduleKey !== selectedModule) return false;
-    if (role === 'tenant_admin') return u.role === 'module_admin';
-    return u.role === 'module_staff' || u.role === 'client';
+    if (isTenantAdminAtRoot) return u.role === 'module_admin';
+    return u.role === 'module_staff';
   });
 
+  const pageTitle = isTenantAdminAtRoot && data.customerName
+    ? `${data.customerName} Admin Controls`
+    : title;
+
+  const pageDescription = isTenantAdminAtRoot
+    ? 'Manage module admin accounts, staff, and public entries.'
+    : `Module ${selectedModule?.replace('module_', '').toUpperCase()} Admin Controls. Operations and access control.`;
+
+  const tabs = [];
+  if (isTenantAdminAtRoot) {
+    tabs.push({ id: 'accounts', label: 'Accounts' });
+    tabs.push({ id: 'tenant-admin-staff', label: `${data.customerName} Admin Staff` });
+    tabs.push({ id: 'tenant-admin-staff-workspace-assignment', label: `${data.customerName} Admin Staff Workspace Assignment` });
+    tabs.push({ id: 'tenant-admin-staff-workspaces', label: `${data.customerName} Admin Staff Workspaces` });
+    tabs.push({ id: 'workspaces', label: 'Public Entries' });
+  } else {
+    tabs.push({ id: 'workspaces', label: 'Module Workspaces' });
+    tabs.push({ id: 'module-staff-workspace-assignment', label: 'Module Staff Workspace Assignment' });
+  }
+
   return (
-    <RouteFrame eyebrow="BisBy / admin" title={title}>
+    <RouteFrame
+      eyebrow="BisBy / admin"
+      title={pageTitle}
+    >
       <div className="mt-12 flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">
         <div>
           <h2 className="text-2xl font-semibold tracking-[-0.035em]">
-            {role === 'tenant_admin' ? 'Managed Accounts' : 'Module Administration'}
+            {isTenantAdminAtRoot ? 'Accounts' : `Module ${selectedModule?.replace('module_', '').toUpperCase()} Admin Controls`}
           </h2>
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
-            {role === 'tenant_admin'
-              ? 'Global scope. Managing module administrators.'
-              : `Module ${data.currentUser.moduleKey
-                  ?.replace('module_', '')
-                  .toUpperCase()} scope. Operations and access control.`}
+            {pageDescription}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {selectedTab === 'accounts' && !isCreating && selectedModule && (
+          <Link
+            href={moduleLetter ? `/module/${moduleLetter.toLowerCase()}/home` : '/tenant/home'}
+            className="inline-flex items-center gap-2 border border-[hsl(var(--primary))] bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85"
+            data-testid={moduleLetter ? `link-module-${moduleLetter.toLowerCase()}-home` : 'link-tenant-home'}
+          >
+            {moduleLetter
+              ? `Module ${moduleLetter.toUpperCase()} Home`
+              : `${data.customerName} Home`}
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          {selectedModule && isTenantAdminAtRoot && (
+            <Link
+              href={`/${selectedModule.replace('module_', '')}/admin`}
+              className="inline-flex items-center gap-2 border border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--primary))] hover:text-[hsl(var(--primary-foreground))]"
+              data-testid="link-open-selected-module"
+            >
+              Open Module {selectedModule.replace('module_', '').toUpperCase()}
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+          {selectedTab === 'accounts' && !isCreating && selectedModule && isTenantAdminAtRoot && (
             <button
               type="button"
               onClick={() => setIsCreating(true)}
@@ -192,35 +261,81 @@ function AdminControlPlaneContent({ title }: { title: string }) {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2 border-b border-[hsl(var(--border))] pb-4">
-  <button
-    type="button"
-    onClick={() => { setActiveTab('accounts'); setIsCreating(false); }}
-    className={`border px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
-      activeTab === 'accounts'
-        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] text-[hsl(var(--foreground))]'
-        : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))]'
-    }`}
-    data-testid="tab-admin-accounts"
-  >
-    Accounts
-  </button>
-  <button
-    type="button"
-    onClick={() => { setActiveTab('workspaces'); setIsCreating(false); }}
-    className={`border px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
-      activeTab === 'workspaces'
-        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] text-[hsl(var(--foreground))]'
-        : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))]'
-    }`}
-    data-testid="tab-admin-workspaces"
-  >
-    {role === 'tenant_admin' ? 'Tenant Workspaces' : 'Workspace Control'}
-  </button>
-</div>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => { setActiveTab(tab.id as any); setIsCreating(false); }}
+            className={`border px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
+              activeTab === tab.id
+                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] text-[hsl(var(--foreground))]'
+                : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))]'
+            }`}
+            data-testid={`tab-admin-${tab.id}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {selectedTab === 'accounts' ? (
+      {selectedTab === 'tenant-admin-staff' && isTenantAdminAtRoot ? (
+        <div className="mt-8"><TenantAdminStaffControl section="staff" customerName={data.customerName} /></div>
+      ) : selectedTab === 'tenant-admin-staff-workspace-assignment' && isTenantAdminAtRoot ? (
+        <div className="mt-8"><TenantAdminStaffControl section="assignments" customerName={data.customerName} /></div>
+      ) : selectedTab === 'tenant-admin-staff-workspaces' && isTenantAdminAtRoot ? (
+        <div className="mt-8"><TenantAdminStaffControl section="workspaces" customerName={data.customerName} /></div>
+      ) : selectedTab === 'module-staff-workspace-assignment' && !isTenantAdminAtRoot ? (
+        <div className="mt-8">
+          <div className="border-b border-[hsl(var(--border))] pb-6 flex items-center justify-between">
+            <div>
+              <h3 className="font-mono text-sm uppercase tracking-[0.15em]">
+                Module Staff Workspace Assignment
+              </h3>
+              <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
+                Assign module staff to one or more Module {selectedModule?.replace('module_', '').toUpperCase()} workspaces.
+              </p>
+            </div>
+            {!isTenantAdminAtModule && (
+              <button
+                type="button"
+                onClick={() => setIsCreating(true)}
+                className="inline-flex items-center gap-2 bg-[hsl(var(--primary))] px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85"
+                data-testid="button-create-module-staff-start"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Add New
+              </button>
+            )}
+          </div>
+          {isCreating && (
+            <div className="mt-8">
+              <CreateModuleStaffCard
+                workspaces={data.workspaces}
+                moduleKey={selectedModule!}
+                onClose={() => setIsCreating(false)}
+              />
+            </div>
+          )}
+          <div className="mt-8 grid gap-4">
+            {filteredUsers.map((user) => (
+              <ModuleStaffWorkspaceAssignment
+                key={user.id}
+                user={user}
+                workspaces={data.workspaces}
+                readOnly={isTenantAdminAtModule}
+              />
+            ))}
+            {filteredUsers.length === 0 && (
+              <div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.4)] p-8 text-center">
+                <p className="font-mono text-xs uppercase tracking-[0.15em] text-[hsl(var(--muted-foreground))]">
+                  No module staff available for workspace assignment
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : selectedTab === 'accounts' && isTenantAdminAtRoot ? (
   <>
-    {role === 'tenant_admin' && (
+    {isTenantAdminAtRoot && (
       <div className="mb-8 mt-4 flex flex-wrap gap-2">
         {data.enabledModules.map((moduleKey) => {
           const letter = moduleKey.replace('module_', '');
@@ -260,7 +375,7 @@ function AdminControlPlaneContent({ title }: { title: string }) {
 
     <div className="mt-8 grid gap-4">
       {filteredUsers.map((user) => (
-        <UserCard key={user.id} user={user} currentUserRole={role} workspaces={data.workspaces} />
+        <UserCard key={user.id} user={user} currentUserRole={role} workspaces={data.workspaces} readOnly={isTenantAdminAtModule} />
       ))}
       {filteredUsers.length === 0 && (
         <div className="border border-[hsl(var(--border))] bg-[hsl(var(--card)/.4)] p-8 text-center">
@@ -273,10 +388,120 @@ function AdminControlPlaneContent({ title }: { title: string }) {
   </>
 ) : (
   <div className="mt-8">
-    {role === 'tenant_admin' ? <TenantWorkspaceControl /> : <ModuleWorkspaceControl />}
+    {isTenantAdminAtRoot ? <TenantWorkspaceControl /> : <ModuleWorkspaceControl readOnly={isTenantAdminAtModule} moduleKey={selectedModule || undefined} />}
   </div>
 )}
     </RouteFrame>
+  );
+}
+
+function CreateModuleStaffCard({
+  workspaces,
+  moduleKey,
+  onClose,
+}: {
+  workspaces: ManagedWorkspaceOption[];
+  moduleKey: ModuleKey;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const createAccount = useCreateManagedTenantAccount();
+  const availableWorkspaces = workspaces.filter((w) => w.moduleKey === moduleKey);
+
+  const handleCreate = async (data: { username: string; displayName: string; temporaryPassword: string; workspaceKeys: string[] }) => {
+    try {
+      await createAccount.mutateAsync({
+        data: {
+          username: data.username,
+          displayName: data.displayName,
+          temporaryPassword: data.temporaryPassword,
+          role: 'module_staff',
+          moduleKey,
+          workspaceKeys: data.workspaceKeys,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetTenantAdminQueryKey() });
+      onClose();
+    } catch {}
+  };
+
+  return (
+    <StaffWorkspaceCard
+      mode="create"
+      roleLabel={`Module ${moduleKey.replace('module_', '').toUpperCase()} Staff`}
+      workspaces={availableWorkspaces}
+      onClose={onClose}
+      onCreate={handleCreate}
+      pending={createAccount.isPending}
+      error={createAccount.isError}
+      testIdPrefix="module-staff-workspace-assignment"
+    />
+  );
+}
+
+function ModuleStaffWorkspaceAssignment({
+  user,
+  workspaces,
+  readOnly,
+}: {
+  user: ManagedTenantAccount;
+  workspaces: ManagedWorkspaceOption[];
+  readOnly: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const updateAccess = useUpdateManagedTenantAccountAccess();
+  const updateStatus = useUpdateManagedTenantAccountStatus();
+  const deleteUser = useDeleteManagedTenantAccount();
+  const availableWorkspaces = workspaces.filter((workspace) => workspace.moduleKey === user.moduleKey);
+
+  const handleSave = async (workspaceKeys: string[]) => {
+    try {
+      await updateAccess.mutateAsync({
+        accountId: user.id,
+        data: { role: 'module_staff', workspaceKeys },
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetTenantAdminQueryKey() });
+    } catch {}
+  };
+
+  const handleToggleStatus = async () => {
+    try {
+      await updateStatus.mutateAsync({
+        accountId: user.id,
+        data: { active: !user.isActive },
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetTenantAdminQueryKey() });
+    } catch {}
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteUser.mutateAsync({ accountId: user.id });
+      await queryClient.invalidateQueries({ queryKey: getGetTenantAdminQueryKey() });
+    } catch {}
+  };
+
+  const isPending = updateAccess.isPending || updateStatus.isPending || deleteUser.isPending;
+  const isError = updateAccess.isError || updateStatus.isError || deleteUser.isError;
+
+  return (
+    <StaffWorkspaceCard
+      mode="edit"
+      defaultDisplayName={user.displayName}
+      defaultUsername={user.username}
+      roleLabel={`Module ${user.moduleKey?.replace('module_', '').toUpperCase()} Staff`}
+      workspaces={availableWorkspaces}
+      defaultWorkspaceKeys={user.workspaceKeys}
+      isActive={user.isActive}
+      readOnly={readOnly}
+      pending={isPending}
+      error={isError}
+      onSave={handleSave}
+      onSuspend={handleToggleStatus}
+      onReactivate={handleToggleStatus}
+      onDelete={handleDelete}
+      testIdPrefix="module-staff-workspace-assignment"
+    />
   );
 }
 
@@ -284,10 +509,12 @@ function UserCard({
   user,
   currentUserRole,
   workspaces,
+  readOnly,
 }: {
   user: ManagedTenantAccount;
   currentUserRole: string;
   workspaces: ManagedWorkspaceOption[];
+  readOnly?: boolean;
 }) {
   const queryClient = useQueryClient();
   const updateStatus = useUpdateManagedTenantAccountStatus();
@@ -300,14 +527,18 @@ function UserCard({
         data: { active: !user.isActive },
       });
       queryClient.invalidateQueries({
-        queryKey: getGetTenantAdministrationQueryKey(),
+        queryKey: getGetTenantAdminQueryKey(),
       });
     } catch {}
   };
 
   const canEdit =
+    !readOnly &&
     currentUserRole === 'module_admin' &&
     (user.role === 'module_staff' || user.role === 'client');
+  const canToggleStatus = canEdit;
+  const canResetPassword =
+    canEdit || (!readOnly && currentUserRole === 'tenant_admin' && user.role === 'module_admin');
 
   return (
     <div
@@ -367,34 +598,38 @@ function UserCard({
               <Pencil className="h-4 w-4" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setActiveForm(activeForm === 'reset' ? null : 'reset')}
-            disabled={!user.isActive}
-            className={`border px-3 py-2 transition-colors ${
-              activeForm === 'reset'
-                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.1)] text-[hsl(var(--foreground))]'
-                : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] disabled:cursor-not-allowed disabled:opacity-40'
-            }`}
-            title="Reset Password"
-            data-testid={`button-reset-password-${user.username}`}
-          >
-            <Key className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleToggleStatus}
-            disabled={updateStatus.isPending}
-            className={`border px-3 py-2 transition-colors ${
-              user.isActive
-                ? 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--accent))] hover:text-[hsl(var(--accent))]'
-                : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--secondary))] hover:text-[hsl(var(--secondary))]'
-            }`}
-            title={user.isActive ? 'Deactivate Account' : 'Activate Account'}
-            data-testid={`button-toggle-status-${user.username}`}
-          >
-            <Power className="h-4 w-4" />
-          </button>
+          {canResetPassword && (
+            <button
+              type="button"
+              onClick={() => setActiveForm(activeForm === 'reset' ? null : 'reset')}
+              disabled={!user.isActive}
+              className={`border px-3 py-2 transition-colors ${
+                activeForm === 'reset'
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.1)] text-[hsl(var(--foreground))]'
+                  : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] disabled:cursor-not-allowed disabled:opacity-40'
+              }`}
+              title="Reset Password"
+              data-testid={`button-reset-password-${user.username}`}
+            >
+              <Key className="h-4 w-4" />
+            </button>
+          )}
+          {canToggleStatus && (
+            <button
+              type="button"
+              onClick={handleToggleStatus}
+              disabled={updateStatus.isPending}
+              className={`border px-3 py-2 transition-colors ${
+                user.isActive
+                  ? 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--accent))] hover:text-[hsl(var(--accent))]'
+                  : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--secondary))] hover:text-[hsl(var(--secondary))]'
+              }`}
+              title={user.isActive ? 'Deactivate Account' : 'Activate Account'}
+              data-testid={`button-toggle-status-${user.username}`}
+            >
+              <Power className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -438,7 +673,7 @@ function PasswordResetForm({
         data: { temporaryPassword },
       });
       await queryClient.invalidateQueries({
-        queryKey: getGetTenantAdministrationQueryKey(),
+        queryKey: getGetTenantAdminQueryKey(),
       });
       onComplete();
     } catch {}
@@ -530,7 +765,7 @@ function EditAccountForm({
         },
       });
       await queryClient.invalidateQueries({
-        queryKey: getGetTenantAdministrationQueryKey(),
+        queryKey: getGetTenantAdminQueryKey(),
       });
       onComplete();
     } catch {}
@@ -643,7 +878,7 @@ function CreateAccountForm({
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<ManagedTenantAccountCreateRequestRole>(
-    isTenantAdmin ? 'module_admin' : 'module_staff',
+    isTenantAdmin ? 'module_admin' : 'client',
   );
   const [workspaceKeys, setWorkspaceKeys] = useState<string[]>([]);
   const [temporaryPassword, setTemporaryPassword] = useState('');
@@ -664,7 +899,7 @@ function CreateAccountForm({
         },
       });
       await queryClient.invalidateQueries({
-        queryKey: getGetTenantAdministrationQueryKey(),
+        queryKey: getGetTenantAdminQueryKey(),
       });
       onCancel();
     } catch {}
@@ -680,7 +915,7 @@ function CreateAccountForm({
             <UserPlus className="h-4 w-4" />
           </div>
           <h3 className="font-mono text-sm uppercase tracking-[0.15em]">
-            New {isTenantAdmin ? 'Module Administrator' : role.replace('_', ' ')}
+            New {isTenantAdmin ? 'module admin' : role.replace('_', ' ')}
           </h3>
         </div>
         <button
@@ -734,7 +969,6 @@ function CreateAccountForm({
               className="mt-2 w-full border border-[hsl(var(--input))] bg-transparent px-3 py-3 font-mono text-sm outline-none focus:border-[hsl(var(--ring))]"
               data-testid="select-create-role"
             >
-              <option value="module_staff">Module Staff</option>
               <option value="client">Client</option>
             </select>
           </label>

@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Sign in with a tenant-local account
+ * @summary Sign in with a customer-space account
  */
 export const loginBodyUsernameMax = 255;
 
@@ -31,43 +31,45 @@ export const LoginBody = zod.object({
   "password": zod.string().min(1).max(loginBodyPasswordMax)
 })
 
-export const loginResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const loginResponseWorkspaceKeysItemOneRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const loginResponseWorkspaceKeysItemTwoRegExp = new RegExp('^tasw-[1-9][0-9]*$');
 
 
 export const LoginResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client']),
+  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client', 'tenant_admin_staff']),
   "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()]),
-  "workspaceKeys": zod.array(zod.string().regex(loginResponseWorkspaceKeysItemRegExp)),
+  "workspaceKeys": zod.array(zod.union([zod.string().regex(loginResponseWorkspaceKeysItemOneRegExp),zod.string().regex(loginResponseWorkspaceKeysItemTwoRegExp)])),
   "requiresPasswordChange": zod.boolean()
 })
 
 
 /**
- * @summary Get the current tenant-local account
+ * @summary Get the current customer-space account
  */
-export const getCurrentUserResponseWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getCurrentUserResponseWorkspaceKeysItemOneRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getCurrentUserResponseWorkspaceKeysItemTwoRegExp = new RegExp('^tasw-[1-9][0-9]*$');
 
 
 export const GetCurrentUserResponse = zod.object({
   "accountId": zod.string(),
   "tenantId": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client']),
+  "role": zod.enum(['tenant_admin', 'module_admin', 'module_staff', 'client', 'tenant_admin_staff']),
   "moduleKey": zod.union([zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),zod.null()]),
-  "workspaceKeys": zod.array(zod.string().regex(getCurrentUserResponseWorkspaceKeysItemRegExp)),
+  "workspaceKeys": zod.array(zod.union([zod.string().regex(getCurrentUserResponseWorkspaceKeysItemOneRegExp),zod.string().regex(getCurrentUserResponseWorkspaceKeysItemTwoRegExp)])),
   "requiresPasswordChange": zod.boolean()
 })
 
 
 /**
- * @summary Replace a tenant-local account password
+ * @summary Replace a customer-space account password
  */
 export const changePasswordBodyCurrentPasswordMax = 255;
 
-export const changePasswordBodyNewPasswordMin = 12;
+export const changePasswordBodyNewPasswordMin = 8;
 export const changePasswordBodyNewPasswordMax = 255;
 
 
@@ -84,7 +86,7 @@ export const ChangePasswordResponse = zod.object({
 
 
 /**
- * @summary End the current tenant-local session
+ * @summary End the current customer-space session
  */
 export const LogoutResponse = zod.object({
   "authenticated": zod.boolean()
@@ -92,8 +94,20 @@ export const LogoutResponse = zod.object({
 
 
 /**
+ * @summary Get the resolved customer-space identity
+ */
+
+
+
+export const GetCustomerContextResponse = zod.object({
+  "customerName": zod.string().min(1),
+  "subdomain": zod.string()
+})
+
+
+/**
  * Returns access only when the authenticated local account is assigned to the requested module and workspace.
- * @summary Check access to a tenant workspace route
+ * @summary Check access to a customer workspace route
  */
 export const getRouteAccessPathWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
 
@@ -109,6 +123,7 @@ export const getRouteAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-
 export const GetRouteAccessResponse = zod.object({
   "allowed": zod.boolean(),
   "tenantId": zod.string(),
+  "customerName": zod.string(),
   "subdomain": zod.string(),
   "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
   "workspaceKey": zod.string().regex(getRouteAccessResponseWorkspaceKeyRegExp)
@@ -146,9 +161,16 @@ export const GetContentAccessResponse = zod.object({
 
 
 /**
- * @summary List the current module administrator's workspaces and content controls
+ * A tenant admin must explicitly select an enabled module. A module admin may only read their assigned enabled module.
+ * @summary List a selected module's workspaces and content controls
  */
+export const GetModuleWorkspaceControlQueryParams = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']).optional()
+})
+
 export const getModuleWorkspaceControlResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getModuleWorkspaceControlResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getModuleWorkspaceControlResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
 
 
 export const GetModuleWorkspaceControlResponse = zod.object({
@@ -167,6 +189,8 @@ export const GetModuleWorkspaceControlResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getModuleWorkspaceControlResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getModuleWorkspaceControlResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -189,6 +213,8 @@ export const CreateModuleWorkspaceBody = zod.object({
 })
 
 export const createModuleWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const createModuleWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const createModuleWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
 
 
 export const CreateModuleWorkspaceResponse = zod.object({
@@ -205,6 +231,8 @@ export const CreateModuleWorkspaceResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(createModuleWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(createModuleWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -212,6 +240,163 @@ export const CreateModuleWorkspaceResponse = zod.object({
   "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
 }))
 })
+
+
+/**
+ * @summary Add a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const addModuleWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addModuleWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const addModuleWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddModuleWorkspaceHierarchyNodeBody = zod.object({
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string().regex(addModuleWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(addModuleWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(addModuleWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const addModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const addModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddModuleWorkspaceHierarchyNodeResponse = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(addModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(addModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(addModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+/**
+ * @summary Edit a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const updateModuleWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateModuleWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(updateModuleWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const updateModuleWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateModuleWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const updateModuleWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateModuleWorkspaceHierarchyNodeBody = zod.object({
+  "key": zod.string().regex(updateModuleWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(updateModuleWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(updateModuleWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateModuleWorkspaceHierarchyNodeResponse = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+/**
+ * @summary Remove a semantic node and descendants across every workspace in the assigned module
+ */
+export const removeModuleWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemoveModuleWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(removeModuleWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemoveModuleWorkspaceHierarchyNodeResponse = zod.object({
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
+  "workspaceKey": zod.string().regex(removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(removeModuleWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const getTenantWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getTenantWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
 
 
 export const GetTenantWorkspacesResponse = zod.object({
@@ -226,6 +411,8 @@ export const GetTenantWorkspacesResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getTenantWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getTenantWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -248,6 +435,10 @@ export const CreateTenantWorkspaceBody = zod.object({
   "contactEnabled": zod.boolean()
 })
 
+export const createTenantWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const createTenantWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
 export const CreateTenantWorkspaceResponse = zod.object({
   "scope": zod.enum(['tenant', 'platform']),
   "workspaceKey": zod.string(),
@@ -259,6 +450,8 @@ export const CreateTenantWorkspaceResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(createTenantWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(createTenantWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -287,6 +480,10 @@ export const UpdateTenantWorkspaceBody = zod.object({
   "contactEnabled": zod.boolean()
 })
 
+export const updateTenantWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
 export const UpdateTenantWorkspaceResponse = zod.object({
   "scope": zod.enum(['tenant', 'platform']),
   "workspaceKey": zod.string(),
@@ -298,6 +495,8 @@ export const UpdateTenantWorkspaceResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateTenantWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateTenantWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -335,6 +534,10 @@ export const UpdateTenantWorkspaceAccessBody = zod.object({
 })).min(1).max(updateTenantWorkspaceAccessBodyControlsMax)
 })
 
+export const updateTenantWorkspaceAccessResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
 export const UpdateTenantWorkspaceAccessResponse = zod.object({
   "scope": zod.enum(['tenant', 'platform']),
   "workspaceKey": zod.string(),
@@ -346,6 +549,8 @@ export const UpdateTenantWorkspaceAccessResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateTenantWorkspaceAccessResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateTenantWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -432,6 +637,8 @@ export const UpdateModuleWorkspaceAccessBody = zod.object({
 })
 
 export const updateModuleWorkspaceAccessResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const updateModuleWorkspaceAccessResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateModuleWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
 
 
 export const UpdateModuleWorkspaceAccessResponse = zod.object({
@@ -448,6 +655,8 @@ export const UpdateModuleWorkspaceAccessResponse = zod.object({
   "contentNodes": zod.array(zod.object({
   "id": zod.uuid(),
   "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateModuleWorkspaceAccessResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateModuleWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
   "type": zod.enum(['page', 'tab', 'card']),
   "key": zod.string(),
   "displayName": zod.string(),
@@ -460,13 +669,14 @@ export const UpdateModuleWorkspaceAccessResponse = zod.object({
 /**
  * @summary Get the current tenant administration scope and managed accounts
  */
-export const getTenantAdministrationResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
-export const getTenantAdministrationResponseUsersItemWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getTenantAdminResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+export const getTenantAdminResponseUsersItemWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
 
 
-export const GetTenantAdministrationResponse = zod.object({
+export const GetTenantAdminResponse = zod.object({
   "tenantId": zod.string(),
   "subdomain": zod.string(),
+  "customerName": zod.string(),
   "enabledModules": zod.array(zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h'])),
   "currentUser": zod.object({
   "accountId": zod.uuid(),
@@ -476,7 +686,7 @@ export const GetTenantAdministrationResponse = zod.object({
 }),
   "workspaces": zod.array(zod.object({
   "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
-  "workspaceKey": zod.string().regex(getTenantAdministrationResponseWorkspacesItemWorkspaceKeyRegExp),
+  "workspaceKey": zod.string().regex(getTenantAdminResponseWorkspacesItemWorkspaceKeyRegExp),
   "displayName": zod.string()
 })),
   "users": zod.array(zod.object({
@@ -485,7 +695,7 @@ export const GetTenantAdministrationResponse = zod.object({
   "displayName": zod.string(),
   "role": zod.enum(['module_admin', 'module_staff', 'client']),
   "moduleKey": zod.enum(['module_a', 'module_b', 'module_c', 'module_d', 'module_e', 'module_f', 'module_g', 'module_h']),
-  "workspaceKeys": zod.array(zod.string().regex(getTenantAdministrationResponseUsersItemWorkspaceKeysItemRegExp)),
+  "workspaceKeys": zod.array(zod.string().regex(getTenantAdminResponseUsersItemWorkspaceKeysItemRegExp)),
   "isActive": zod.boolean(),
   "requiresPasswordChange": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -494,14 +704,14 @@ export const GetTenantAdministrationResponse = zod.object({
 
 
 /**
- * @summary Create a module administrator, staff, or client account
+ * @summary Create a module admin, module staff, or client account
  */
 export const createManagedTenantAccountBodyUsernameMax = 255;
 
 export const createManagedTenantAccountBodyDisplayNameMax = 255;
 
 export const createManagedTenantAccountBodyWorkspaceKeysItemRegExp = new RegExp('^ws-[1-9][0-9]*$');
-export const createManagedTenantAccountBodyTemporaryPasswordMin = 12;
+export const createManagedTenantAccountBodyTemporaryPasswordMin = 8;
 export const createManagedTenantAccountBodyTemporaryPasswordMax = 255;
 
 
@@ -549,6 +759,19 @@ export const UpdateManagedTenantAccountStatusResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete a module staff or client account and its assignments
+ */
+export const DeleteManagedTenantAccountParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const DeleteManagedTenantAccountResponse = zod.object({
+  "accountId": zod.uuid(),
+  "deleted": zod.literal(true)
+})
+
+
+/**
  * @summary Change a staff or client role and workspace access
  */
 export const UpdateManagedTenantAccountAccessParams = zod.object({
@@ -587,7 +810,7 @@ export const ResetManagedTenantAccountPasswordParams = zod.object({
   "accountId": zod.uuid()
 })
 
-export const resetManagedTenantAccountPasswordBodyTemporaryPasswordMin = 12;
+export const resetManagedTenantAccountPasswordBodyTemporaryPasswordMin = 8;
 export const resetManagedTenantAccountPasswordBodyTemporaryPasswordMax = 255;
 
 
@@ -602,3 +825,1010 @@ export const ResetManagedTenantAccountPasswordResponse = zod.object({
 })
 
 
+/**
+ * @summary List tenant admin staff and Tenant Admin Staff Workspaces
+ */
+export const getTenantAdminStaffAdministrationResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const getTenantAdminStaffAdministrationResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getTenantAdminStaffAdministrationResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getTenantAdminStaffAdministrationResponseStaffItemWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const GetTenantAdminStaffAdministrationResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(getTenantAdminStaffAdministrationResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getTenantAdminStaffAdministrationResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getTenantAdminStaffAdministrationResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})),
+  "staff": zod.array(zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(getTenantAdminStaffAdministrationResponseStaffItemWorkspaceKeysItemRegExp))
+}))
+})
+
+
+/**
+ * @summary Create a tenant admin staff account
+ */
+export const createTenantAdminStaffBodyTemporaryPasswordMin = 8;
+
+export const createTenantAdminStaffBodyWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+
+export const CreateTenantAdminStaffBody = zod.object({
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "temporaryPassword": zod.string().min(createTenantAdminStaffBodyTemporaryPasswordMin),
+  "workspaceKeys": zod.array(zod.string().regex(createTenantAdminStaffBodyWorkspaceKeysItemRegExp)).min(1)
+})
+
+export const createTenantAdminStaffResponseWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const CreateTenantAdminStaffResponse = zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(createTenantAdminStaffResponseWorkspaceKeysItemRegExp))
+})
+
+
+/**
+ * @summary Create a Tenant Admin Staff Workspace
+ */
+export const createTenantAdminStaffWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const CreateTenantAdminStaffWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(createTenantAdminStaffWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const createTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const createTenantAdminStaffWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const createTenantAdminStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const CreateTenantAdminStaffWorkspaceResponse = zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(createTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(createTenantAdminStaffWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(createTenantAdminStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const addTenantAdminStaffWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addTenantAdminStaffWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const addTenantAdminStaffWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddTenantAdminStaffWorkspaceHierarchyNodeBody = zod.object({
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string().regex(addTenantAdminStaffWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(addTenantAdminStaffWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(addTenantAdminStaffWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddTenantAdminStaffWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(addTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const updateTenantAdminStaffWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateTenantAdminStaffWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const updateTenantAdminStaffWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantAdminStaffWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const updateTenantAdminStaffWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateTenantAdminStaffWorkspaceHierarchyNodeBody = zod.object({
+  "key": zod.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(updateTenantAdminStaffWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateTenantAdminStaffWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const removeTenantAdminStaffWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemoveTenantAdminStaffWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(removeTenantAdminStaffWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemoveTenantAdminStaffWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(removeTenantAdminStaffWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const UpdateTenantAdminStaffStatusParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const UpdateTenantAdminStaffStatusBody = zod.object({
+  "active": zod.boolean()
+})
+
+export const UpdateTenantAdminStaffStatusResponse = zod.object({
+  "accountId": zod.uuid(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Permanently delete a tenant admin staff account and its assignments
+ */
+export const DeleteTenantAdminStaffParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const DeleteTenantAdminStaffResponse = zod.object({
+  "accountId": zod.uuid(),
+  "deleted": zod.literal(true)
+})
+
+
+export const UpdateTenantAdminStaffAssignmentsParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const updateTenantAdminStaffAssignmentsBodyWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+
+export const UpdateTenantAdminStaffAssignmentsBody = zod.object({
+  "workspaceKeys": zod.array(zod.string().regex(updateTenantAdminStaffAssignmentsBodyWorkspaceKeysItemRegExp)).min(1)
+})
+
+export const updateTenantAdminStaffAssignmentsResponseWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const UpdateTenantAdminStaffAssignmentsResponse = zod.object({
+  "accountId": zod.uuid(),
+  "workspaceKeys": zod.array(zod.string().regex(updateTenantAdminStaffAssignmentsResponseWorkspaceKeysItemRegExp))
+})
+
+
+export const ResetTenantAdminStaffPasswordParams = zod.object({
+  "accountId": zod.uuid()
+})
+
+export const resetTenantAdminStaffPasswordBodyTemporaryPasswordMin = 8;
+
+
+
+export const ResetTenantAdminStaffPasswordBody = zod.object({
+  "temporaryPassword": zod.string().min(resetTenantAdminStaffPasswordBodyTemporaryPasswordMin)
+})
+
+export const ResetTenantAdminStaffPasswordResponse = zod.object({
+  "status": zod.enum(['password_reset']),
+  "accountId": zod.uuid()
+})
+
+
+export const updateTenantAdminStaffWorkspacePathWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const UpdateTenantAdminStaffWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateTenantAdminStaffWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const updateTenantAdminStaffWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const UpdateTenantAdminStaffWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(updateTenantAdminStaffWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const updateTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const updateTenantAdminStaffWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantAdminStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateTenantAdminStaffWorkspaceResponse = zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(updateTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateTenantAdminStaffWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateTenantAdminStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const removeTenantAdminStaffWorkspacePathWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const RemoveTenantAdminStaffWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(removeTenantAdminStaffWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const removeTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const RemoveTenantAdminStaffWorkspaceResponse = zod.object({
+  "workspaceKey": zod.string().regex(removeTenantAdminStaffWorkspaceResponseWorkspaceKeyRegExp),
+  "removed": zod.literal(true)
+})
+
+
+export const updateTenantAdminStaffWorkspaceAccessPathWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const UpdateTenantAdminStaffWorkspaceAccessParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updateTenantAdminStaffWorkspaceAccessPathWorkspaceKeyRegExp)
+})
+
+export const updateTenantAdminStaffWorkspaceAccessBodyControlsMax = 250;
+
+
+
+export const UpdateTenantAdminStaffWorkspaceAccessBody = zod.object({
+  "controls": zod.array(zod.object({
+  "nodeId": zod.uuid(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+})).min(1).max(updateTenantAdminStaffWorkspaceAccessBodyControlsMax)
+})
+
+export const updateTenantAdminStaffWorkspaceAccessResponseWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const updateTenantAdminStaffWorkspaceAccessResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updateTenantAdminStaffWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdateTenantAdminStaffWorkspaceAccessResponse = zod.object({
+  "id": zod.uuid(),
+  "workspaceKey": zod.string().regex(updateTenantAdminStaffWorkspaceAccessResponseWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "sortOrder": zod.int(),
+  "createdAt": zod.coerce.date(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updateTenantAdminStaffWorkspaceAccessResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updateTenantAdminStaffWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const loginPlatformStaffBodyUsernameMax = 255;
+
+export const loginPlatformStaffBodyPasswordMax = 255;
+
+
+
+export const LoginPlatformStaffBody = zod.object({
+  "username": zod.string().min(1).max(loginPlatformStaffBodyUsernameMax),
+  "password": zod.string().min(1).max(loginPlatformStaffBodyPasswordMax)
+})
+
+export const LoginPlatformStaffResponse = zod.object({
+  "authenticated": zod.literal(true),
+  "accountId": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "requiresPasswordChange": zod.boolean()
+})
+
+
+export const LogoutPlatformStaffResponse = zod.object({
+  "authenticated": zod.literal(false)
+})
+
+
+export const GetCurrentPlatformStaffResponse = zod.object({
+  "authenticated": zod.literal(true),
+  "accountId": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "requiresPasswordChange": zod.boolean()
+})
+
+
+export const changePlatformStaffPasswordBodyCurrentPasswordMax = 255;
+
+export const changePlatformStaffPasswordBodyNewPasswordMin = 8;
+export const changePlatformStaffPasswordBodyNewPasswordMax = 255;
+
+
+
+export const ChangePlatformStaffPasswordBody = zod.object({
+  "currentPassword": zod.string().min(1).max(changePlatformStaffPasswordBodyCurrentPasswordMax),
+  "newPassword": zod.string().min(changePlatformStaffPasswordBodyNewPasswordMin).max(changePlatformStaffPasswordBodyNewPasswordMax)
+})
+
+export const ChangePlatformStaffPasswordResponse = zod.object({
+  "status": zod.literal("password_changed"),
+  "requiresPasswordChange": zod.literal(false)
+})
+
+
+export const getPlatformStaffWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getPlatformStaffWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const GetPlatformStaffWorkspacesResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getPlatformStaffWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getPlatformStaffWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const getPlatformStaffWorkspacePathWorkspaceKeyRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const GetPlatformStaffWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(getPlatformStaffWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const getPlatformStaffWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getPlatformStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const GetPlatformStaffWorkspaceResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getPlatformStaffWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getPlatformStaffWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const getPlatformStaffAdministrationResponseStaffItemWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+export const getPlatformStaffAdministrationResponseWorkspacesItemWorkspaceKeyRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const GetPlatformStaffAdministrationResponse = zod.object({
+  "staff": zod.array(zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(getPlatformStaffAdministrationResponseStaffItemWorkspaceKeysItemRegExp))
+})),
+  "workspaces": zod.array(zod.object({
+  "workspaceKey": zod.string().regex(getPlatformStaffAdministrationResponseWorkspacesItemWorkspaceKeyRegExp),
+  "displayName": zod.string(),
+  "isActive": zod.boolean()
+}))
+})
+
+
+export const createPlatformStaffBodyUsernameMax = 255;
+
+export const createPlatformStaffBodyDisplayNameMax = 255;
+
+export const createPlatformStaffBodyTemporaryPasswordMin = 8;
+export const createPlatformStaffBodyTemporaryPasswordMax = 255;
+
+export const createPlatformStaffBodyWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+
+export const CreatePlatformStaffBody = zod.object({
+  "username": zod.string().min(1).max(createPlatformStaffBodyUsernameMax),
+  "displayName": zod.string().min(1).max(createPlatformStaffBodyDisplayNameMax),
+  "temporaryPassword": zod.string().min(createPlatformStaffBodyTemporaryPasswordMin).max(createPlatformStaffBodyTemporaryPasswordMax),
+  "workspaceKeys": zod.array(zod.string().regex(createPlatformStaffBodyWorkspaceKeysItemRegExp)).min(1)
+})
+
+export const createPlatformStaffResponsePlatformStaffWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const CreatePlatformStaffResponse = zod.object({
+  "status": zod.literal("platform_staff_created"),
+  "platformStaff": zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(createPlatformStaffResponsePlatformStaffWorkspaceKeysItemRegExp))
+})
+})
+
+
+export const DeletePlatformStaffParams = zod.object({
+  "platformStaffId": zod.uuid()
+})
+
+export const DeletePlatformStaffResponse = zod.object({
+  "status": zod.literal("platform_staff_deleted"),
+  "platformStaffId": zod.uuid(),
+  "deleted": zod.literal(true)
+})
+
+
+export const UpdatePlatformStaffWorkspacesParams = zod.object({
+  "platformStaffId": zod.uuid()
+})
+
+export const updatePlatformStaffWorkspacesBodyWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+
+export const UpdatePlatformStaffWorkspacesBody = zod.object({
+  "workspaceKeys": zod.array(zod.string().regex(updatePlatformStaffWorkspacesBodyWorkspaceKeysItemRegExp)).min(1)
+})
+
+export const updatePlatformStaffWorkspacesResponsePlatformStaffWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const UpdatePlatformStaffWorkspacesResponse = zod.object({
+  "status": zod.literal("platform_staff_workspaces_updated"),
+  "platformStaff": zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(updatePlatformStaffWorkspacesResponsePlatformStaffWorkspaceKeysItemRegExp))
+})
+})
+
+
+export const UpdatePlatformStaffStatusParams = zod.object({
+  "platformStaffId": zod.uuid()
+})
+
+export const UpdatePlatformStaffStatusBody = zod.object({
+  "active": zod.boolean()
+})
+
+export const updatePlatformStaffStatusResponsePlatformStaffWorkspaceKeysItemRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const UpdatePlatformStaffStatusResponse = zod.object({
+  "status": zod.literal("platform_staff_status_updated"),
+  "platformStaff": zod.object({
+  "id": zod.uuid(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "requiresPasswordChange": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "workspaceKeys": zod.array(zod.string().regex(updatePlatformStaffStatusResponsePlatformStaffWorkspaceKeysItemRegExp))
+})
+})
+
+
+export const ResetPlatformStaffPasswordParams = zod.object({
+  "platformStaffId": zod.uuid()
+})
+
+export const resetPlatformStaffPasswordBodyTemporaryPasswordMin = 8;
+export const resetPlatformStaffPasswordBodyTemporaryPasswordMax = 255;
+
+
+
+export const ResetPlatformStaffPasswordBody = zod.object({
+  "temporaryPassword": zod.string().min(resetPlatformStaffPasswordBodyTemporaryPasswordMin).max(resetPlatformStaffPasswordBodyTemporaryPasswordMax)
+})
+
+export const ResetPlatformStaffPasswordResponse = zod.object({
+  "status": zod.literal("platform_staff_temporary_password_reset"),
+  "platformStaffId": zod.uuid(),
+  "requiresPasswordChange": zod.literal(true)
+})
+
+
+export const getPlatformWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const getPlatformWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const GetPlatformWorkspacesResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(getPlatformWorkspacesResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(getPlatformWorkspacesResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const createPlatformWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const CreatePlatformWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(createPlatformWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const createPlatformWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const createPlatformWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const CreatePlatformWorkspaceResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(createPlatformWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(createPlatformWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const addPlatformWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addPlatformWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const addPlatformWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddPlatformWorkspaceHierarchyNodeBody = zod.object({
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string().regex(addPlatformWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(addPlatformWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(addPlatformWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const addPlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const addPlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const AddPlatformWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(addPlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(addPlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const updatePlatformWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdatePlatformWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(updatePlatformWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const updatePlatformWorkspaceHierarchyNodeBodyKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updatePlatformWorkspaceHierarchyNodeBodyDisplayNameMax = 255;
+
+export const updatePlatformWorkspaceHierarchyNodeBodyParentKeyOneRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdatePlatformWorkspaceHierarchyNodeBody = zod.object({
+  "key": zod.string().regex(updatePlatformWorkspaceHierarchyNodeBodyKeyRegExp),
+  "displayName": zod.string().min(1).max(updatePlatformWorkspaceHierarchyNodeBodyDisplayNameMax),
+  "sortOrder": zod.int(),
+  "parentType": zod.union([zod.enum(['page', 'tab', 'card']),zod.null()]),
+  "parentKey": zod.union([zod.string().regex(updatePlatformWorkspaceHierarchyNodeBodyParentKeyOneRegExp),zod.null()])
+})
+
+export const updatePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updatePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdatePlatformWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updatePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updatePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const removePlatformWorkspaceHierarchyNodePathNodeKeyRegExp = new RegExp('^[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemovePlatformWorkspaceHierarchyNodeParams = zod.object({
+  "nodeType": zod.enum(['page', 'tab', 'card']),
+  "nodeKey": zod.coerce.string().regex(removePlatformWorkspaceHierarchyNodePathNodeKeyRegExp)
+})
+
+export const removePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const removePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const RemovePlatformWorkspaceHierarchyNodeResponse = zod.object({
+  "workspaces": zod.array(zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(removePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(removePlatformWorkspaceHierarchyNodeResponseWorkspacesItemContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+}))
+})
+
+
+export const updatePlatformWorkspacePathWorkspaceKeyRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const UpdatePlatformWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updatePlatformWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const updatePlatformWorkspaceBodyDisplayNameMax = 255;
+
+
+
+export const UpdatePlatformWorkspaceBody = zod.object({
+  "displayName": zod.string().min(1).max(updatePlatformWorkspaceBodyDisplayNameMax),
+  "isActive": zod.boolean(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean()
+})
+
+export const updatePlatformWorkspaceResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updatePlatformWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdatePlatformWorkspaceResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updatePlatformWorkspaceResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updatePlatformWorkspaceResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+export const removePlatformWorkspacePathWorkspaceKeyRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const RemovePlatformWorkspaceParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(removePlatformWorkspacePathWorkspaceKeyRegExp)
+})
+
+export const removePlatformWorkspaceResponseWorkspaceKeyRegExp = new RegExp('^ws-[1-9][0-9]*$');
+
+
+export const RemovePlatformWorkspaceResponse = zod.object({
+  "status": zod.enum(['workspace_removed']),
+  "workspaceKey": zod.string().regex(removePlatformWorkspaceResponseWorkspaceKeyRegExp)
+})
+
+
+export const updatePlatformWorkspaceAccessPathWorkspaceKeyRegExp = new RegExp('^pws-[1-9][0-9]*$');
+
+
+export const UpdatePlatformWorkspaceAccessParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(updatePlatformWorkspaceAccessPathWorkspaceKeyRegExp)
+})
+
+export const updatePlatformWorkspaceAccessBodyControlsMax = 250;
+
+
+
+export const UpdatePlatformWorkspaceAccessBody = zod.object({
+  "controls": zod.array(zod.object({
+  "nodeId": zod.uuid(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+})).min(1).max(updatePlatformWorkspaceAccessBodyControlsMax)
+})
+
+export const updatePlatformWorkspaceAccessResponseContentNodesItemSemanticIdRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+export const updatePlatformWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp = new RegExp('^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$');
+
+
+export const UpdatePlatformWorkspaceAccessResponse = zod.object({
+  "scope": zod.enum(['tenant', 'platform']),
+  "workspaceKey": zod.string(),
+  "displayName": zod.string(),
+  "workspaceType": zod.enum(['normal', 'public_information', 'contact_us']),
+  "isActive": zod.boolean(),
+  "publicVisible": zod.boolean(),
+  "contactEnabled": zod.boolean(),
+  "contentNodes": zod.array(zod.object({
+  "id": zod.uuid(),
+  "parentId": zod.union([zod.uuid(),zod.null()]),
+  "semanticId": zod.string().regex(updatePlatformWorkspaceAccessResponseContentNodesItemSemanticIdRegExp),
+  "parentSemanticId": zod.union([zod.string().regex(updatePlatformWorkspaceAccessResponseContentNodesItemParentSemanticIdOneRegExp),zod.null()]),
+  "type": zod.enum(['page', 'tab', 'card']),
+  "key": zod.string(),
+  "displayName": zod.string(),
+  "sortOrder": zod.int(),
+  "accessLevel": zod.enum(['active', 'sign_only', 'view_only', 'not_available'])
+}))
+})
+
+
+/**
+ * @summary Authorize a tenant admin staff workspace destination
+ */
+export const getTenantAdminStaffWorkspaceAccessPathWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const GetTenantAdminStaffWorkspaceAccessParams = zod.object({
+  "workspaceKey": zod.coerce.string().regex(getTenantAdminStaffWorkspaceAccessPathWorkspaceKeyRegExp)
+})
+
+export const getTenantAdminStaffWorkspaceAccessResponseWorkspaceKeyRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+export const getTenantAdminStaffWorkspaceAccessResponseWorkspaceKeysItemRegExp = new RegExp('^tasw-[1-9][0-9]*$');
+
+
+export const GetTenantAdminStaffWorkspaceAccessResponse = zod.object({
+  "allowed": zod.literal(true),
+  "workspaceKey": zod.string().regex(getTenantAdminStaffWorkspaceAccessResponseWorkspaceKeyRegExp),
+  "workspaceKeys": zod.array(zod.string().regex(getTenantAdminStaffWorkspaceAccessResponseWorkspaceKeysItemRegExp))
+})

@@ -6,6 +6,9 @@ import * as addAdministrationRoles from "./migrations/tenant/20260901030000_add_
 import * as addWorkspaceControlRegistry from "./migrations/tenant/20260901040000_add_workspace_control_registry";
 import * as addPublicWorkspaceRegistries from "./migrations/tenant/20260901050000_add_public_workspace_registries";
 import * as enforceModuleWorkspaceMetadata from "./migrations/tenant/20260901060000_enforce_module_workspace_metadata";
+import * as addTenantAdminStaffWorkspaces from "./migrations/tenant/20260901070000_add_tenant_admin_staff_workspaces";
+import * as addTenantAdminStaffWorkspaceContentNodes from "./migrations/tenant/20260901080000_add_tenant_admin_staff_workspace_content_nodes";
+import * as seedTenantAdminStaffWorkspaceMatrix from "./migrations/tenant/20260902000000_seed_tenant_admin_staff_workspace_matrix";
 
 interface RuntimeMigration {
   readonly name: string;
@@ -41,6 +44,18 @@ const migrations: readonly RuntimeMigration[] = [
   {
     name: "20260901060000_enforce_module_workspace_metadata.ts",
     ...enforceModuleWorkspaceMetadata,
+  },
+  {
+    name: "20260901070000_add_tenant_admin_staff_workspaces.ts",
+    ...addTenantAdminStaffWorkspaces,
+  },
+  {
+    name: "20260901080000_add_tenant_admin_staff_workspace_content_nodes.ts",
+    ...addTenantAdminStaffWorkspaceContentNodes,
+  },
+  {
+    name: "20260902000000_seed_tenant_admin_staff_workspace_matrix.ts",
+    ...seedTenantAdminStaffWorkspaceMatrix,
   },
 ];
 

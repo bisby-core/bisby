@@ -9,11 +9,13 @@ export interface TenantContextCarrier {
 export function toTenantContext(record: {
   readonly tenantId: string;
   readonly subdomain: string;
+  readonly customerName: string;
   readonly enabledModules: readonly TenantContext["enabledModules"][number][];
 }): TenantContext {
   return {
     tenantId: record.tenantId,
     subdomain: record.subdomain,
+    customerName: record.customerName,
     enabledModules: [...record.enabledModules],
   };
 }

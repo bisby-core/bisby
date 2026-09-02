@@ -74,7 +74,7 @@ export function verifySessionToken(
     if (
       typeof session.accountId !== "string" ||
       typeof session.tenantId !== "string" ||
-      !["tenant_admin", "module_admin", "module_staff", "client", "staff"].includes(session.role) ||
+       !["tenant_admin", "module_admin", "module_staff", "client", "tenant_admin_staff", "staff"].includes(session.role) ||
       !Number.isInteger(session.expiresAt) ||
       session.expiresAt <= now
     ) {

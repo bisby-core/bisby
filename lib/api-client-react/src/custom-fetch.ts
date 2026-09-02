@@ -1,5 +1,10 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /**
+   * Overrides the configured base URL for one request. Pass `null` to keep a
+   * root-relative URL even when a global tenant-development prefix is active.
+   */
+  baseUrl?: string | null;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -60,13 +65,16 @@ function isUrl(input: RequestInfo | URL): input is URL {
   return typeof URL !== "undefined" && input instanceof URL;
 }
 
-function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
-  if (!_baseUrl) return input;
+function applyBaseUrl(
+  input: RequestInfo | URL,
+  baseUrl: string | null = _baseUrl,
+): RequestInfo | URL {
+  if (!baseUrl) return input;
   const url = resolveUrl(input);
   // Only prepend to relative paths (starting with /)
   if (!url.startsWith("/")) return input;
 
-  const absolute = `${_baseUrl}${url}`;
+  const absolute = `${baseUrl.replace(/\/+$/, "")}${url}`;
   if (typeof input === "string") return absolute;
   if (isUrl(input)) return new URL(absolute);
   return new Request(absolute, input as Request);
@@ -326,8 +334,13 @@ export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
 ): Promise<T> {
-  input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    baseUrl = _baseUrl,
+    headers: headersInit,
+    ...init
+  } = options;
+  input = applyBaseUrl(input, baseUrl);
 
   const method = resolveMethod(input, init.method);
 

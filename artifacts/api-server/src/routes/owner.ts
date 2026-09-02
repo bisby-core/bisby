@@ -2,15 +2,22 @@ import { Router, type IRouter } from "express";
 import {
   OwnerLoginBody,
   OwnerTenantIdParams,
-  OwnerTenantAdministratorParams,
+  OwnerTenantAdminParams,
   OwnerTenantModuleParams,
-  OwnerTenantAdministratorCreateBody,
-  OwnerTenantAdministratorResetBody,
+  OwnerTenantAdminCreateBody,
+  OwnerTenantAdminResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
   WorkspaceMetadataBody,
   OwnerWorkspaceParams,
   WorkspaceAccessBody,
+  ModuleWorkspaceHierarchyCreateBody,
+  ModuleWorkspaceHierarchyParams,
+  ModuleWorkspaceHierarchyUpdateBody,
+  OwnerPlatformStaffCreateBody,
+  OwnerPlatformStaffParams,
+  OwnerPlatformStaffResetBody,
+  OwnerPlatformStaffWorkspacesBody,
 } from "./schemas";
 import {
   clearOwnerSessionCookie,
@@ -31,15 +38,24 @@ import {
 } from "../owner/control-plane";
 import { provisionTenant, TenantProvisioningError } from "../owner/provisioning";
 import {
-  listTenantAdministrators,
-  createTenantAdministrator,
-  resetTenantAdministratorCredentials,
-  TenantAdministratorError,
-  updateTenantAdministratorStatus,
-} from "../owner/tenant-administrators";
+  listTenantAdmins,
+  createTenantAdmin,
+  resetTenantAdminCredentials,
+  TenantAdminError,
+  updateTenantAdminStatus,
+} from "../owner/tenant-admins";
 import { timingSafeEqual } from "node:crypto";
 import type { Knex } from "knex";
-import { createPlatformWorkspace, listPlatformWorkspaces, removePlatformWorkspace, updatePlatformWorkspace, updatePlatformWorkspaceAccess } from "../owner/workspaces";
+import { addPlatformWorkspaceHierarchyNode, createPlatformWorkspace, listPlatformWorkspaces, PlatformWorkspaceHierarchyError, removePlatformWorkspace, removePlatformWorkspaceHierarchyNode, updatePlatformWorkspace, updatePlatformWorkspaceAccess, updatePlatformWorkspaceHierarchyNode } from "../owner/workspaces";
+import {
+  createPlatformStaff,
+  deletePlatformStaff,
+  getPlatformStaffSnapshot,
+  PlatformStaffError,
+  resetPlatformStaffTemporaryPassword,
+  updatePlatformStaffStatus,
+  updatePlatformStaffWorkspaces,
+} from "../owner/platform-staff";
 
 function configuredOwnerCredential(name: "BISBY_OWNER_USERNAME" | "BISBY_OWNER_PASSWORD"): string {
   const value = process.env[name];
@@ -147,6 +163,24 @@ function ownerRouter(
     if (!body.success) { res.status(400).json({ error: "invalid_workspace_payload" }); return; }
     try { const workspace = await createPlatformWorkspace(masterDatabase, body.data); await recordPlatformAudit(masterDatabase, { eventType: "owner.workspace.created", actorUsername: req.ownerUsername as string, details: { workspaceKey: workspace.workspaceKey } }); res.status(201).json(workspace); } catch (error) { next(error); }
   });
+  router.post("/workspaces/hierarchy", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const body = ModuleWorkspaceHierarchyCreateBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: "invalid_workspace_hierarchy_payload" }); return; }
+    try { res.status(201).json(await addPlatformWorkspaceHierarchyNode(masterDatabase, body.data)); } catch (error) { if (!handlePlatformWorkspaceHierarchyError(error, res)) next(error); }
+  });
+  router.patch("/workspaces/hierarchy/:nodeType/:nodeKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = ModuleWorkspaceHierarchyParams.safeParse(req.params); const body = ModuleWorkspaceHierarchyUpdateBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_workspace_hierarchy_payload" }); return; }
+    try { res.json(await updatePlatformWorkspaceHierarchyNode(masterDatabase, params.data.nodeType, params.data.nodeKey, body.data)); } catch (error) { if (!handlePlatformWorkspaceHierarchyError(error, res)) next(error); }
+  });
+  router.delete("/workspaces/hierarchy/:nodeType/:nodeKey", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = ModuleWorkspaceHierarchyParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: "invalid_workspace_hierarchy_target" }); return; }
+    try { res.json(await removePlatformWorkspaceHierarchyNode(masterDatabase, params.data.nodeType, params.data.nodeKey)); } catch (error) { if (!handlePlatformWorkspaceHierarchyError(error, res)) next(error); }
+  });
   router.patch("/workspaces/:workspaceKey", async (req, res, next) => {
     if (!requireOwnerSession(req, res)) return;
     const params = OwnerWorkspaceParams.safeParse(req.params); const body = WorkspaceMetadataBody.safeParse(req.body);
@@ -188,23 +222,92 @@ function ownerRouter(
     }
   });
 
-  router.get("/tenants/:tenantId/administrators", async (req, res, next) => {
+  const handlePlatformStaffError = (error: unknown, res: Parameters<Parameters<IRouter["get"]>[1]>[1]): boolean => {
+    if (!(error instanceof PlatformStaffError)) return false;
+    const status = error.code === "platform_staff_not_found"
+      ? 404
+      : error.code === "platform_staff_conflict"
+        ? 409
+        : 400;
+    res.status(status).json({ error: error.code, message: error.message });
+    return true;
+  };
+  const handlePlatformWorkspaceHierarchyError = (error: unknown, res: Parameters<Parameters<IRouter["get"]>[1]>[1]): boolean => {
+    if (!(error instanceof PlatformWorkspaceHierarchyError)) return false;
+    const status = error.code === "invalid_platform_workspace_hierarchy_parent"
+      ? 400
+      : error.code === "platform_workspace_hierarchy_key_conflict"
+        ? 409
+        : 404;
+    res.status(status).json({ error: error.code, message: error.message });
+    return true;
+  };
+
+  router.get("/platform-staff", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    try { res.json(await getPlatformStaffSnapshot(masterDatabase)); } catch (error) { next(error); }
+  });
+  router.post("/platform-staff", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const body = OwnerPlatformStaffCreateBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: "invalid_platform_staff_create_payload" }); return; }
+    try {
+      res.status(201).json(await createPlatformStaff(masterDatabase, req.ownerUsername as string, body.data));
+    } catch (error) { if (!handlePlatformStaffError(error, res)) next(error); }
+  });
+  router.put("/platform-staff/:platformStaffId/workspaces", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerPlatformStaffParams.safeParse(req.params);
+    const body = OwnerPlatformStaffWorkspacesBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_platform_staff_workspaces_payload" }); return; }
+    try {
+      res.json(await updatePlatformStaffWorkspaces(masterDatabase, req.ownerUsername as string, params.data.platformStaffId, body.data.workspaceKeys));
+    } catch (error) { if (!handlePlatformStaffError(error, res)) next(error); }
+  });
+  router.patch("/platform-staff/:platformStaffId/status", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerPlatformStaffParams.safeParse(req.params);
+    const body = OwnerToggleBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_platform_staff_status_payload" }); return; }
+    try {
+      res.json(await updatePlatformStaffStatus(masterDatabase, req.ownerUsername as string, params.data.platformStaffId, body.data.active));
+    } catch (error) { if (!handlePlatformStaffError(error, res)) next(error); }
+  });
+  router.delete("/platform-staff/:platformStaffId", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerPlatformStaffParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: "invalid_platform_staff_target" }); return; }
+    try {
+      res.json(await deletePlatformStaff(masterDatabase, req.ownerUsername as string, params.data.platformStaffId));
+    } catch (error) { if (!handlePlatformStaffError(error, res)) next(error); }
+  });
+  router.post("/platform-staff/:platformStaffId/reset-password", async (req, res, next) => {
+    if (!requireOwnerSession(req, res)) return;
+    const params = OwnerPlatformStaffParams.safeParse(req.params);
+    const body = OwnerPlatformStaffResetBody.safeParse(req.body);
+    if (!params.success || !body.success) { res.status(400).json({ error: "invalid_platform_staff_reset_payload" }); return; }
+    try {
+      res.json(await resetPlatformStaffTemporaryPassword(masterDatabase, req.ownerUsername as string, params.data.platformStaffId, body.data.temporaryPassword));
+    } catch (error) { if (!handlePlatformStaffError(error, res)) next(error); }
+  });
+
+  router.get("/tenants/:tenantId/tenant-admins", async (req, res, next) => {
     if (!requireOwnerSession(req, res)) return;
     const parsedParams = OwnerTenantIdParams.safeParse(req.params);
     if (!parsedParams.success) {
-      res.status(400).json({ error: "invalid_tenant_administrator_params" });
+      res.status(400).json({ error: "invalid_tenant_admin_params" });
       return;
     }
 
     try {
       res.json(
-        await listTenantAdministrators(
+        await listTenantAdmins(
           masterDatabase,
           parsedParams.data.tenantId,
         ),
       );
     } catch (error) {
-      if (error instanceof TenantAdministratorError) {
+      if (error instanceof TenantAdminError) {
         res.status(error.code === "tenant_not_found" ? 404 : 503).json({
           error: error.code,
           message: error.message,
@@ -215,18 +318,18 @@ function ownerRouter(
     }
   });
 
-  router.post("/tenants/:tenantId/administrators", async (req, res, next) => {
+  router.post("/tenants/:tenantId/tenant-admins", async (req, res, next) => {
     if (!requireOwnerSession(req, res)) return;
     const parsedParams = OwnerTenantIdParams.safeParse(req.params);
-    const parsedBody = OwnerTenantAdministratorCreateBody.safeParse(req.body);
+    const parsedBody = OwnerTenantAdminCreateBody.safeParse(req.body);
     if (!parsedParams.success || !parsedBody.success) {
-      res.status(400).json({ error: "invalid_tenant_administrator_create_payload" });
+      res.status(400).json({ error: "invalid_tenant_admin_create_payload" });
       return;
     }
 
     try {
       res.status(201).json(
-        await createTenantAdministrator(
+        await createTenantAdmin(
           masterDatabase,
           req.ownerUsername as string,
           parsedParams.data.tenantId,
@@ -234,11 +337,11 @@ function ownerRouter(
         ),
       );
     } catch (error) {
-      if (error instanceof TenantAdministratorError) {
+      if (error instanceof TenantAdminError) {
         const status =
           error.code === "tenant_not_found"
             ? 404
-            : error.code === "administrator_conflict"
+            : error.code === "tenant_admin_conflict"
               ? 409
               : 503;
         res.status(status).json({ error: error.code, message: error.message });
@@ -249,30 +352,30 @@ function ownerRouter(
   });
 
   router.patch(
-    "/tenants/:tenantId/administrators/:administratorId",
+    "/tenants/:tenantId/tenant-admins/:tenantAdminId",
     async (req, res, next) => {
       if (!requireOwnerSession(req, res)) return;
-      const parsedParams = OwnerTenantAdministratorParams.safeParse(req.params);
+      const parsedParams = OwnerTenantAdminParams.safeParse(req.params);
       const parsedBody = OwnerToggleBody.safeParse(req.body);
       if (!parsedParams.success || !parsedBody.success) {
-        res.status(400).json({ error: "invalid_tenant_administrator_status_payload" });
+        res.status(400).json({ error: "invalid_tenant_admin_status_payload" });
         return;
       }
 
       try {
         res.json(
-          await updateTenantAdministratorStatus(
+          await updateTenantAdminStatus(
             masterDatabase,
             req.ownerUsername as string,
             parsedParams.data.tenantId,
-            parsedParams.data.administratorId,
+            parsedParams.data.tenantAdminId,
             parsedBody.data.active,
           ),
         );
       } catch (error) {
-        if (error instanceof TenantAdministratorError) {
+        if (error instanceof TenantAdminError) {
           res.status(
-            error.code === "tenant_not_found" || error.code === "administrator_not_found"
+            error.code === "tenant_not_found" || error.code === "tenant_admin_not_found"
               ? 404
               : 503,
           ).json({ error: error.code, message: error.message });
@@ -284,19 +387,19 @@ function ownerRouter(
   );
 
   router.post(
-    "/tenants/:tenantId/administrators/reset-password",
+    "/tenants/:tenantId/tenant-admins/reset-password",
     async (req, res, next) => {
       if (!requireOwnerSession(req, res)) return;
       const parsedParams = OwnerTenantIdParams.safeParse(req.params);
-      const parsedBody = OwnerTenantAdministratorResetBody.safeParse(req.body);
+      const parsedBody = OwnerTenantAdminResetBody.safeParse(req.body);
       if (!parsedParams.success || !parsedBody.success) {
-        res.status(400).json({ error: "invalid_tenant_administrator_reset_payload" });
+        res.status(400).json({ error: "invalid_tenant_admin_reset_payload" });
         return;
       }
 
       try {
         res.json(
-          await resetTenantAdministratorCredentials(
+          await resetTenantAdminCredentials(
             masterDatabase,
             req.ownerUsername as string,
             parsedParams.data.tenantId,
@@ -306,12 +409,12 @@ function ownerRouter(
           ),
         );
       } catch (error) {
-        if (error instanceof TenantAdministratorError) {
+        if (error instanceof TenantAdminError) {
           const status =
             error.code === "tenant_not_found" ||
-            error.code === "administrator_not_found"
+            error.code === "tenant_admin_not_found"
               ? 404
-              : error.code === "administrator_conflict"
+              : error.code === "tenant_admin_conflict"
                 ? 409
                 : 503;
           res.status(status).json({

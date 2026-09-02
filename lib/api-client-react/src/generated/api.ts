@@ -20,11 +20,14 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActiveStatusRequest,
   ApiError,
   AuthLogoutResponse,
   AuthenticatedLocalUser,
   ChangePasswordRequest,
   ContentAccess,
+  CustomerContext,
+  GetModuleWorkspaceControlParams,
   HealthStatus,
   LoginRequest,
   ManagedModuleWorkspace,
@@ -42,13 +45,44 @@ import type {
   ModuleWorkspaceCreateRequest,
   ModuleWorkspaceRemovedResponse,
   PasswordChangeResponse,
+  PlatformStaffCreateRequest,
+  PlatformStaffCreateResponse,
+  PlatformStaffDeletionResponse,
+  PlatformStaffLogoutResponse,
+  PlatformStaffPasswordChangeResponse,
+  PlatformStaffPasswordResetRequest,
+  PlatformStaffPasswordResetResponse,
+  PlatformStaffSession,
+  PlatformStaffSnapshot,
+  PlatformStaffStatusResponse,
+  PlatformStaffWorkspacesRequest,
+  PlatformStaffWorkspacesResponse,
+  PlatformWorkspaceKey,
   PublicWorkspaceList,
   RouteAccess,
-  TenantAdministrationSnapshot,
+  StaffAccountDeletionResponse,
+  TenantAdminSnapshot,
+  TenantAdminStaffAccount,
+  TenantAdminStaffAdministrationSnapshot,
+  TenantAdminStaffAssignmentsRequest,
+  TenantAdminStaffAssignmentsResponse,
+  TenantAdminStaffCreateRequest,
+  TenantAdminStaffPasswordResetRequest,
+  TenantAdminStaffPasswordResetResponse,
+  TenantAdminStaffStatusRequest,
+  TenantAdminStaffStatusResponse,
+  TenantAdminStaffWorkspace,
+  TenantAdminStaffWorkspaceAccess,
+  TenantAdminStaffWorkspaceKey,
+  TenantAdminStaffWorkspaceList,
+  TenantAdminStaffWorkspaceRemovalResponse,
   TenantWorkspaceKey,
   WorkspaceAccessRequest,
+  WorkspaceContentNodeKey,
   WorkspaceContentNodeType,
   WorkspaceControlSnapshot,
+  WorkspaceHierarchyNodeInput,
+  WorkspaceHierarchyNodeUpdate,
   WorkspaceKey,
   WorkspaceMetadataRequest
 } from './api.schemas';
@@ -167,7 +201,7 @@ export const getLoginUrl = () => {
 }
 
 /**
- * @summary Sign in with a tenant-local account
+ * @summary Sign in with a customer-space account
  */
 export const login = async (loginRequest: LoginRequest, options?: Parameters<typeof customFetch>[1]): Promise<AuthenticatedLocalUser> => {
 
@@ -216,7 +250,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LoginMutationError = ErrorType<ApiError>
 
     /**
- * @summary Sign in with a tenant-local account
+ * @summary Sign in with a customer-space account
  */
 export const useLogin = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -238,7 +272,7 @@ export const getGetCurrentUserUrl = () => {
 }
 
 /**
- * @summary Get the current tenant-local account
+ * @summary Get the current customer-space account
  */
 export const getCurrentUser = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuthenticatedLocalUser> => {
 
@@ -285,7 +319,7 @@ export type GetCurrentUserQueryError = ErrorType<ApiError>
 
 
 /**
- * @summary Get the current tenant-local account
+ * @summary Get the current customer-space account
  */
 
 export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<ApiError>>(
@@ -315,7 +349,7 @@ export const getChangePasswordUrl = () => {
 }
 
 /**
- * @summary Replace a tenant-local account password
+ * @summary Replace a customer-space account password
  */
 export const changePassword = async (changePasswordRequest: ChangePasswordRequest, options?: Parameters<typeof customFetch>[1]): Promise<PasswordChangeResponse> => {
 
@@ -364,7 +398,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ChangePasswordMutationError = ErrorType<ApiError>
 
     /**
- * @summary Replace a tenant-local account password
+ * @summary Replace a customer-space account password
  */
 export const useChangePassword = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changePassword>>, TError,{data: BodyType<ChangePasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -386,7 +420,7 @@ export const getLogoutUrl = () => {
 }
 
 /**
- * @summary End the current tenant-local session
+ * @summary End the current customer-space session
  */
 export const logout = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuthLogoutResponse> => {
 
@@ -435,7 +469,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LogoutMutationError = ErrorType<unknown>
 
     /**
- * @summary End the current tenant-local session
+ * @summary End the current customer-space session
  */
 export const useLogout = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -448,6 +482,83 @@ export const useLogout = <TError = ErrorType<unknown>,
       return useMutation(getLogoutMutationOptions(options));
     }
 
+export const getGetCustomerContextUrl = () => {
+
+
+
+
+  return `/api/customer-context`
+}
+
+/**
+ * @summary Get the resolved customer-space identity
+ */
+export const getCustomerContext = async ( options?: Parameters<typeof customFetch>[1]): Promise<CustomerContext> => {
+
+  return customFetch<CustomerContext>(getGetCustomerContextUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCustomerContextQueryKey = () => {
+    return [
+    `/api/customer-context`
+    ] as const;
+    }
+
+
+export const getGetCustomerContextQueryOptions = <TData = Awaited<ReturnType<typeof getCustomerContext>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerContext>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCustomerContextQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomerContext>>> = ({ signal }) => getCustomerContext({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCustomerContext>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCustomerContextQueryResult = NonNullable<Awaited<ReturnType<typeof getCustomerContext>>>
+export type GetCustomerContextQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the resolved customer-space identity
+ */
+
+export function useGetCustomerContext<TData = Awaited<ReturnType<typeof getCustomerContext>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerContext>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCustomerContextQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetRouteAccessUrl = (moduleKey: ModuleKey,
     workspaceKey: WorkspaceKey,) => {
 
@@ -459,7 +570,7 @@ export const getGetRouteAccessUrl = (moduleKey: ModuleKey,
 
 /**
  * Returns access only when the authenticated local account is assigned to the requested module and workspace.
- * @summary Check access to a tenant workspace route
+ * @summary Check access to a customer workspace route
  */
 export const getRouteAccess = async (moduleKey: ModuleKey,
     workspaceKey: WorkspaceKey, options?: Parameters<typeof customFetch>[1]): Promise<RouteAccess> => {
@@ -509,7 +620,7 @@ export type GetRouteAccessQueryError = ErrorType<ApiError>
 
 
 /**
- * @summary Check access to a tenant workspace route
+ * @summary Check access to a customer workspace route
  */
 
 export function useGetRouteAccess<TData = Awaited<ReturnType<typeof getRouteAccess>>, TError = ErrorType<ApiError>>(
@@ -623,20 +734,28 @@ export function useGetContentAccess<TData = Awaited<ReturnType<typeof getContent
 
 
 
-export const getGetModuleWorkspaceControlUrl = () => {
+export const getGetModuleWorkspaceControlUrl = (params?: GetModuleWorkspaceControlParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/admin/workspaces`
+  return stringifiedParams.length > 0 ? `/api/admin/workspaces?${stringifiedParams}` : `/api/admin/workspaces`
 }
 
 /**
- * @summary List the current module administrator's workspaces and content controls
+ * A tenant admin must explicitly select an enabled module. A module admin may only read their assigned enabled module.
+ * @summary List a selected module's workspaces and content controls
  */
-export const getModuleWorkspaceControl = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorkspaceControlSnapshot> => {
+export const getModuleWorkspaceControl = async (params?: GetModuleWorkspaceControlParams, options?: Parameters<typeof customFetch>[1]): Promise<WorkspaceControlSnapshot> => {
 
-  return customFetch<WorkspaceControlSnapshot>(getGetModuleWorkspaceControlUrl(),
+  return customFetch<WorkspaceControlSnapshot>(getGetModuleWorkspaceControlUrl(params),
   {
     ...options,
     method: 'GET'
@@ -649,23 +768,23 @@ export const getModuleWorkspaceControl = async ( options?: Parameters<typeof cus
 
 
 
-export const getGetModuleWorkspaceControlQueryKey = () => {
+export const getGetModuleWorkspaceControlQueryKey = (params?: GetModuleWorkspaceControlParams,) => {
     return [
-    `/api/admin/workspaces`
+    `/api/admin/workspaces`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetModuleWorkspaceControlQueryOptions = <TData = Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetModuleWorkspaceControlQueryOptions = <TData = Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError = ErrorType<ApiError>>(params?: GetModuleWorkspaceControlParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetModuleWorkspaceControlQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetModuleWorkspaceControlQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getModuleWorkspaceControl>>> = ({ signal }) => getModuleWorkspaceControl({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getModuleWorkspaceControl>>> = ({ signal }) => getModuleWorkspaceControl(params, { signal, ...requestOptions });
 
 
 
@@ -679,15 +798,15 @@ export type GetModuleWorkspaceControlQueryError = ErrorType<ApiError>
 
 
 /**
- * @summary List the current module administrator's workspaces and content controls
+ * @summary List a selected module's workspaces and content controls
  */
 
 export function useGetModuleWorkspaceControl<TData = Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError = ErrorType<ApiError>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetModuleWorkspaceControlParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleWorkspaceControl>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetModuleWorkspaceControlQueryOptions(options)
+  const queryOptions = getGetModuleWorkspaceControlQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -769,6 +888,224 @@ export const useCreateModuleWorkspace = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateModuleWorkspaceMutationOptions(options));
+    }
+
+export const getAddModuleWorkspaceHierarchyNodeUrl = () => {
+
+
+
+
+  return `/api/admin/workspaces/hierarchy`
+}
+
+/**
+ * @summary Add a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const addModuleWorkspaceHierarchyNode = async (workspaceHierarchyNodeInput: WorkspaceHierarchyNodeInput, options?: Parameters<typeof customFetch>[1]): Promise<WorkspaceControlSnapshot> => {
+
+  return customFetch<WorkspaceControlSnapshot>(getAddModuleWorkspaceHierarchyNodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeInput)
+  }
+);}
+
+
+
+
+
+export const getAddModuleWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext> => {
+
+const mutationKey = ['addModuleWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>, {data: BodyType<WorkspaceHierarchyNodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addModuleWorkspaceHierarchyNode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddModuleWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>>
+    export type AddModuleWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeInput>
+    export type AddModuleWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Add a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const useAddModuleWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addModuleWorkspaceHierarchyNode>>,
+        TError,
+        {data: BodyType<WorkspaceHierarchyNodeInput>},
+        TContext
+      > => {
+      return useMutation(getAddModuleWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getUpdateModuleWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/admin/workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+/**
+ * @summary Edit a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const updateModuleWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,
+    workspaceHierarchyNodeUpdate: WorkspaceHierarchyNodeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<WorkspaceControlSnapshot> => {
+
+  return customFetch<WorkspaceControlSnapshot>(getUpdateModuleWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateModuleWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext> => {
+
+const mutationKey = ['updateModuleWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}> = (props) => {
+          const {nodeType,nodeKey,data} = props ?? {};
+
+          return  updateModuleWorkspaceHierarchyNode(nodeType,nodeKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateModuleWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>>
+    export type UpdateModuleWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeUpdate>
+    export type UpdateModuleWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Edit a semantic page, tab, or card across every workspace in the assigned module
+ */
+export const useUpdateModuleWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateModuleWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateModuleWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getRemoveModuleWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/admin/workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+/**
+ * @summary Remove a semantic node and descendants across every workspace in the assigned module
+ */
+export const removeModuleWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey, options?: Parameters<typeof customFetch>[1]): Promise<WorkspaceControlSnapshot> => {
+
+  return customFetch<WorkspaceControlSnapshot>(getRemoveModuleWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveModuleWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext> => {
+
+const mutationKey = ['removeModuleWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}> = (props) => {
+          const {nodeType,nodeKey} = props ?? {};
+
+          return  removeModuleWorkspaceHierarchyNode(nodeType,nodeKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveModuleWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>>
+
+    export type RemoveModuleWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Remove a semantic node and descendants across every workspace in the assigned module
+ */
+export const useRemoveModuleWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeModuleWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey},
+        TContext
+      > => {
+      return useMutation(getRemoveModuleWorkspaceHierarchyNodeMutationOptions(options));
     }
 
 export const getGetTenantWorkspacesUrl = () => {
@@ -1384,7 +1721,7 @@ export const useUpdateModuleWorkspaceAccess = <TError = ErrorType<ApiError>,
       return useMutation(getUpdateModuleWorkspaceAccessMutationOptions(options));
     }
 
-export const getGetTenantAdministrationUrl = () => {
+export const getGetTenantAdminUrl = () => {
 
 
 
@@ -1395,9 +1732,9 @@ export const getGetTenantAdministrationUrl = () => {
 /**
  * @summary Get the current tenant administration scope and managed accounts
  */
-export const getTenantAdministration = async ( options?: Parameters<typeof customFetch>[1]): Promise<TenantAdministrationSnapshot> => {
+export const getTenantAdmin = async ( options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminSnapshot> => {
 
-  return customFetch<TenantAdministrationSnapshot>(getGetTenantAdministrationUrl(),
+  return customFetch<TenantAdminSnapshot>(getGetTenantAdminUrl(),
   {
     ...options,
     method: 'GET'
@@ -1410,45 +1747,45 @@ export const getTenantAdministration = async ( options?: Parameters<typeof custo
 
 
 
-export const getGetTenantAdministrationQueryKey = () => {
+export const getGetTenantAdminQueryKey = () => {
     return [
     `/api/admin/users`
     ] as const;
     }
 
 
-export const getGetTenantAdministrationQueryOptions = <TData = Awaited<ReturnType<typeof getTenantAdministration>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetTenantAdminQueryOptions = <TData = Awaited<ReturnType<typeof getTenantAdmin>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdmin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetTenantAdministrationQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantAdminQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantAdministration>>> = ({ signal }) => getTenantAdministration({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantAdmin>>> = ({ signal }) => getTenantAdmin({ signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantAdministration>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantAdmin>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetTenantAdministrationQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantAdministration>>>
-export type GetTenantAdministrationQueryError = ErrorType<ApiError>
+export type GetTenantAdminQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantAdmin>>>
+export type GetTenantAdminQueryError = ErrorType<ApiError>
 
 
 /**
  * @summary Get the current tenant administration scope and managed accounts
  */
 
-export function useGetTenantAdministration<TData = Awaited<ReturnType<typeof getTenantAdministration>>, TError = ErrorType<ApiError>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetTenantAdmin<TData = Awaited<ReturnType<typeof getTenantAdmin>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdmin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetTenantAdministrationQueryOptions(options)
+  const queryOptions = getGetTenantAdminQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1470,7 +1807,7 @@ export const getCreateManagedTenantAccountUrl = () => {
 }
 
 /**
- * @summary Create a module administrator, staff, or client account
+ * @summary Create a module admin, module staff, or client account
  */
 export const createManagedTenantAccount = async (managedTenantAccountCreateRequest: ManagedTenantAccountCreateRequest, options?: Parameters<typeof customFetch>[1]): Promise<ManagedTenantAccount> => {
 
@@ -1519,7 +1856,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateManagedTenantAccountMutationError = ErrorType<ApiError>
 
     /**
- * @summary Create a module administrator, staff, or client account
+ * @summary Create a module admin, module staff, or client account
  */
 export const useCreateManagedTenantAccount = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createManagedTenantAccount>>, TError,{data: BodyType<ManagedTenantAccountCreateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1602,6 +1939,77 @@ export const useUpdateManagedTenantAccountStatus = <TError = ErrorType<ApiError>
         TContext
       > => {
       return useMutation(getUpdateManagedTenantAccountStatusMutationOptions(options));
+    }
+
+export const getDeleteManagedTenantAccountUrl = (accountId: string,) => {
+
+
+
+
+  return `/api/admin/users/${accountId}`
+}
+
+/**
+ * @summary Permanently delete a module staff or client account and its assignments
+ */
+export const deleteManagedTenantAccount = async (accountId: string, options?: Parameters<typeof customFetch>[1]): Promise<StaffAccountDeletionResponse> => {
+
+  return customFetch<StaffAccountDeletionResponse>(getDeleteManagedTenantAccountUrl(accountId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteManagedTenantAccountMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManagedTenantAccount>>, TError,{accountId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteManagedTenantAccount>>, TError,{accountId: string}, TContext> => {
+
+const mutationKey = ['deleteManagedTenantAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteManagedTenantAccount>>, {accountId: string}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  deleteManagedTenantAccount(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteManagedTenantAccountMutationResult = NonNullable<Awaited<ReturnType<typeof deleteManagedTenantAccount>>>
+
+    export type DeleteManagedTenantAccountMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Permanently delete a module staff or client account and its assignments
+ */
+export const useDeleteManagedTenantAccount = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteManagedTenantAccount>>, TError,{accountId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteManagedTenantAccount>>,
+        TError,
+        {accountId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteManagedTenantAccountMutationOptions(options));
     }
 
 export const getUpdateManagedTenantAccountAccessUrl = (accountId: string,) => {
@@ -1748,3 +2156,2298 @@ export const useResetManagedTenantAccountPassword = <TError = ErrorType<ApiError
       return useMutation(getResetManagedTenantAccountPasswordMutationOptions(options));
     }
 
+export const getGetTenantAdminStaffAdministrationUrl = () => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff`
+}
+
+/**
+ * @summary List tenant admin staff and Tenant Admin Staff Workspaces
+ */
+export const getTenantAdminStaffAdministration = async ( options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffAdministrationSnapshot> => {
+
+  return customFetch<TenantAdminStaffAdministrationSnapshot>(getGetTenantAdminStaffAdministrationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTenantAdminStaffAdministrationQueryKey = () => {
+    return [
+    `/api/admin/tenant-admin-staff`
+    ] as const;
+    }
+
+
+export const getGetTenantAdminStaffAdministrationQueryOptions = <TData = Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantAdminStaffAdministrationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>> = ({ signal }) => getTenantAdminStaffAdministration({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTenantAdminStaffAdministrationQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>>
+export type GetTenantAdminStaffAdministrationQueryError = ErrorType<void>
+
+
+/**
+ * @summary List tenant admin staff and Tenant Admin Staff Workspaces
+ */
+
+export function useGetTenantAdminStaffAdministration<TData = Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTenantAdminStaffAdministrationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTenantAdminStaffUrl = () => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff`
+}
+
+/**
+ * @summary Create a tenant admin staff account
+ */
+export const createTenantAdminStaff = async (tenantAdminStaffCreateRequest: TenantAdminStaffCreateRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffAccount> => {
+
+  return customFetch<TenantAdminStaffAccount>(getCreateTenantAdminStaffUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tenantAdminStaffCreateRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateTenantAdminStaffMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaff>>, TError,{data: BodyType<TenantAdminStaffCreateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaff>>, TError,{data: BodyType<TenantAdminStaffCreateRequest>}, TContext> => {
+
+const mutationKey = ['createTenantAdminStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTenantAdminStaff>>, {data: BodyType<TenantAdminStaffCreateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTenantAdminStaff(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTenantAdminStaffMutationResult = NonNullable<Awaited<ReturnType<typeof createTenantAdminStaff>>>
+    export type CreateTenantAdminStaffMutationBody = BodyType<TenantAdminStaffCreateRequest>
+    export type CreateTenantAdminStaffMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a tenant admin staff account
+ */
+export const useCreateTenantAdminStaff = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaff>>, TError,{data: BodyType<TenantAdminStaffCreateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTenantAdminStaff>>,
+        TError,
+        {data: BodyType<TenantAdminStaffCreateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateTenantAdminStaffMutationOptions(options));
+    }
+
+export const getCreateTenantAdminStaffWorkspaceUrl = () => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces`
+}
+
+/**
+ * @summary Create a Tenant Admin Staff Workspace
+ */
+export const createTenantAdminStaffWorkspace = async (workspaceMetadataRequest: WorkspaceMetadataRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspace> => {
+
+  return customFetch<TenantAdminStaffWorkspace>(getCreateTenantAdminStaffWorkspaceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceMetadataRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateTenantAdminStaffWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext> => {
+
+const mutationKey = ['createTenantAdminStaffWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>, {data: BodyType<WorkspaceMetadataRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTenantAdminStaffWorkspace(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTenantAdminStaffWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>>
+    export type CreateTenantAdminStaffWorkspaceMutationBody = BodyType<WorkspaceMetadataRequest>
+    export type CreateTenantAdminStaffWorkspaceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a Tenant Admin Staff Workspace
+ */
+export const useCreateTenantAdminStaffWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTenantAdminStaffWorkspace>>,
+        TError,
+        {data: BodyType<WorkspaceMetadataRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateTenantAdminStaffWorkspaceMutationOptions(options));
+    }
+
+export const getAddTenantAdminStaffWorkspaceHierarchyNodeUrl = () => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/hierarchy`
+}
+
+export const addTenantAdminStaffWorkspaceHierarchyNode = async (workspaceHierarchyNodeInput: WorkspaceHierarchyNodeInput, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspaceList> => {
+
+  return customFetch<TenantAdminStaffWorkspaceList>(getAddTenantAdminStaffWorkspaceHierarchyNodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeInput)
+  }
+);}
+
+
+
+
+
+export const getAddTenantAdminStaffWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext> => {
+
+const mutationKey = ['addTenantAdminStaffWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>, {data: BodyType<WorkspaceHierarchyNodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addTenantAdminStaffWorkspaceHierarchyNode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddTenantAdminStaffWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>>
+    export type AddTenantAdminStaffWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeInput>
+    export type AddTenantAdminStaffWorkspaceHierarchyNodeMutationError = ErrorType<unknown>
+
+    export const useAddTenantAdminStaffWorkspaceHierarchyNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addTenantAdminStaffWorkspaceHierarchyNode>>,
+        TError,
+        {data: BodyType<WorkspaceHierarchyNodeInput>},
+        TContext
+      > => {
+      return useMutation(getAddTenantAdminStaffWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getUpdateTenantAdminStaffWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+export const updateTenantAdminStaffWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,
+    workspaceHierarchyNodeUpdate: WorkspaceHierarchyNodeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspaceList> => {
+
+  return customFetch<TenantAdminStaffWorkspaceList>(getUpdateTenantAdminStaffWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantAdminStaffWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext> => {
+
+const mutationKey = ['updateTenantAdminStaffWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}> = (props) => {
+          const {nodeType,nodeKey,data} = props ?? {};
+
+          return  updateTenantAdminStaffWorkspaceHierarchyNode(nodeType,nodeKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantAdminStaffWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>>
+    export type UpdateTenantAdminStaffWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeUpdate>
+    export type UpdateTenantAdminStaffWorkspaceHierarchyNodeMutationError = ErrorType<unknown>
+
+    export const useUpdateTenantAdminStaffWorkspaceHierarchyNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantAdminStaffWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getRemoveTenantAdminStaffWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+export const removeTenantAdminStaffWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspaceList> => {
+
+  return customFetch<TenantAdminStaffWorkspaceList>(getRemoveTenantAdminStaffWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveTenantAdminStaffWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext> => {
+
+const mutationKey = ['removeTenantAdminStaffWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}> = (props) => {
+          const {nodeType,nodeKey} = props ?? {};
+
+          return  removeTenantAdminStaffWorkspaceHierarchyNode(nodeType,nodeKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveTenantAdminStaffWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>>
+
+    export type RemoveTenantAdminStaffWorkspaceHierarchyNodeMutationError = ErrorType<unknown>
+
+    export const useRemoveTenantAdminStaffWorkspaceHierarchyNode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeTenantAdminStaffWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey},
+        TContext
+      > => {
+      return useMutation(getRemoveTenantAdminStaffWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getUpdateTenantAdminStaffStatusUrl = (accountId: string,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff/${accountId}`
+}
+
+export const updateTenantAdminStaffStatus = async (accountId: string,
+    tenantAdminStaffStatusRequest: TenantAdminStaffStatusRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffStatusResponse> => {
+
+  return customFetch<TenantAdminStaffStatusResponse>(getUpdateTenantAdminStaffStatusUrl(accountId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tenantAdminStaffStatusRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantAdminStaffStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>, TError,{accountId: string;data: BodyType<TenantAdminStaffStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>, TError,{accountId: string;data: BodyType<TenantAdminStaffStatusRequest>}, TContext> => {
+
+const mutationKey = ['updateTenantAdminStaffStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>, {accountId: string;data: BodyType<TenantAdminStaffStatusRequest>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  updateTenantAdminStaffStatus(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantAdminStaffStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>>
+    export type UpdateTenantAdminStaffStatusMutationBody = BodyType<TenantAdminStaffStatusRequest>
+    export type UpdateTenantAdminStaffStatusMutationError = ErrorType<unknown>
+
+    export const useUpdateTenantAdminStaffStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>, TError,{accountId: string;data: BodyType<TenantAdminStaffStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantAdminStaffStatus>>,
+        TError,
+        {accountId: string;data: BodyType<TenantAdminStaffStatusRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantAdminStaffStatusMutationOptions(options));
+    }
+
+export const getDeleteTenantAdminStaffUrl = (accountId: string,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff/${accountId}`
+}
+
+/**
+ * @summary Permanently delete a tenant admin staff account and its assignments
+ */
+export const deleteTenantAdminStaff = async (accountId: string, options?: Parameters<typeof customFetch>[1]): Promise<StaffAccountDeletionResponse> => {
+
+  return customFetch<StaffAccountDeletionResponse>(getDeleteTenantAdminStaffUrl(accountId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTenantAdminStaffMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTenantAdminStaff>>, TError,{accountId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTenantAdminStaff>>, TError,{accountId: string}, TContext> => {
+
+const mutationKey = ['deleteTenantAdminStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTenantAdminStaff>>, {accountId: string}> = (props) => {
+          const {accountId} = props ?? {};
+
+          return  deleteTenantAdminStaff(accountId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTenantAdminStaffMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTenantAdminStaff>>>
+
+    export type DeleteTenantAdminStaffMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Permanently delete a tenant admin staff account and its assignments
+ */
+export const useDeleteTenantAdminStaff = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTenantAdminStaff>>, TError,{accountId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTenantAdminStaff>>,
+        TError,
+        {accountId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteTenantAdminStaffMutationOptions(options));
+    }
+
+export const getUpdateTenantAdminStaffAssignmentsUrl = (accountId: string,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff/${accountId}/assignments`
+}
+
+export const updateTenantAdminStaffAssignments = async (accountId: string,
+    tenantAdminStaffAssignmentsRequest: TenantAdminStaffAssignmentsRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffAssignmentsResponse> => {
+
+  return customFetch<TenantAdminStaffAssignmentsResponse>(getUpdateTenantAdminStaffAssignmentsUrl(accountId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tenantAdminStaffAssignmentsRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantAdminStaffAssignmentsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>, TError,{accountId: string;data: BodyType<TenantAdminStaffAssignmentsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>, TError,{accountId: string;data: BodyType<TenantAdminStaffAssignmentsRequest>}, TContext> => {
+
+const mutationKey = ['updateTenantAdminStaffAssignments'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>, {accountId: string;data: BodyType<TenantAdminStaffAssignmentsRequest>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  updateTenantAdminStaffAssignments(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantAdminStaffAssignmentsMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>>
+    export type UpdateTenantAdminStaffAssignmentsMutationBody = BodyType<TenantAdminStaffAssignmentsRequest>
+    export type UpdateTenantAdminStaffAssignmentsMutationError = ErrorType<unknown>
+
+    export const useUpdateTenantAdminStaffAssignments = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>, TError,{accountId: string;data: BodyType<TenantAdminStaffAssignmentsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantAdminStaffAssignments>>,
+        TError,
+        {accountId: string;data: BodyType<TenantAdminStaffAssignmentsRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantAdminStaffAssignmentsMutationOptions(options));
+    }
+
+export const getResetTenantAdminStaffPasswordUrl = (accountId: string,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff/${accountId}/reset-password`
+}
+
+export const resetTenantAdminStaffPassword = async (accountId: string,
+    tenantAdminStaffPasswordResetRequest: TenantAdminStaffPasswordResetRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffPasswordResetResponse> => {
+
+  return customFetch<TenantAdminStaffPasswordResetResponse>(getResetTenantAdminStaffPasswordUrl(accountId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tenantAdminStaffPasswordResetRequest)
+  }
+);}
+
+
+
+
+
+export const getResetTenantAdminStaffPasswordMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>, TError,{accountId: string;data: BodyType<TenantAdminStaffPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>, TError,{accountId: string;data: BodyType<TenantAdminStaffPasswordResetRequest>}, TContext> => {
+
+const mutationKey = ['resetTenantAdminStaffPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>, {accountId: string;data: BodyType<TenantAdminStaffPasswordResetRequest>}> = (props) => {
+          const {accountId,data} = props ?? {};
+
+          return  resetTenantAdminStaffPassword(accountId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetTenantAdminStaffPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>>
+    export type ResetTenantAdminStaffPasswordMutationBody = BodyType<TenantAdminStaffPasswordResetRequest>
+    export type ResetTenantAdminStaffPasswordMutationError = ErrorType<unknown>
+
+    export const useResetTenantAdminStaffPassword = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>, TError,{accountId: string;data: BodyType<TenantAdminStaffPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetTenantAdminStaffPassword>>,
+        TError,
+        {accountId: string;data: BodyType<TenantAdminStaffPasswordResetRequest>},
+        TContext
+      > => {
+      return useMutation(getResetTenantAdminStaffPasswordMutationOptions(options));
+    }
+
+export const getUpdateTenantAdminStaffWorkspaceUrl = (workspaceKey: TenantAdminStaffWorkspaceKey,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/${workspaceKey}`
+}
+
+export const updateTenantAdminStaffWorkspace = async (workspaceKey: TenantAdminStaffWorkspaceKey,
+    workspaceMetadataRequest: WorkspaceMetadataRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspace> => {
+
+  return customFetch<TenantAdminStaffWorkspace>(getUpdateTenantAdminStaffWorkspaceUrl(workspaceKey),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceMetadataRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantAdminStaffWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceMetadataRequest>}, TContext> => {
+
+const mutationKey = ['updateTenantAdminStaffWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>, {workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceMetadataRequest>}> = (props) => {
+          const {workspaceKey,data} = props ?? {};
+
+          return  updateTenantAdminStaffWorkspace(workspaceKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantAdminStaffWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>>
+    export type UpdateTenantAdminStaffWorkspaceMutationBody = BodyType<WorkspaceMetadataRequest>
+    export type UpdateTenantAdminStaffWorkspaceMutationError = ErrorType<unknown>
+
+    export const useUpdateTenantAdminStaffWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantAdminStaffWorkspace>>,
+        TError,
+        {workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceMetadataRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantAdminStaffWorkspaceMutationOptions(options));
+    }
+
+export const getRemoveTenantAdminStaffWorkspaceUrl = (workspaceKey: TenantAdminStaffWorkspaceKey,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/${workspaceKey}`
+}
+
+export const removeTenantAdminStaffWorkspace = async (workspaceKey: TenantAdminStaffWorkspaceKey, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspaceRemovalResponse> => {
+
+  return customFetch<TenantAdminStaffWorkspaceRemovalResponse>(getRemoveTenantAdminStaffWorkspaceUrl(workspaceKey),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveTenantAdminStaffWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey}, TContext> => {
+
+const mutationKey = ['removeTenantAdminStaffWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>, {workspaceKey: TenantAdminStaffWorkspaceKey}> = (props) => {
+          const {workspaceKey} = props ?? {};
+
+          return  removeTenantAdminStaffWorkspace(workspaceKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveTenantAdminStaffWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>>
+
+    export type RemoveTenantAdminStaffWorkspaceMutationError = ErrorType<unknown>
+
+    export const useRemoveTenantAdminStaffWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeTenantAdminStaffWorkspace>>,
+        TError,
+        {workspaceKey: TenantAdminStaffWorkspaceKey},
+        TContext
+      > => {
+      return useMutation(getRemoveTenantAdminStaffWorkspaceMutationOptions(options));
+    }
+
+export const getUpdateTenantAdminStaffWorkspaceAccessUrl = (workspaceKey: TenantAdminStaffWorkspaceKey,) => {
+
+
+
+
+  return `/api/admin/tenant-admin-staff-workspaces/${workspaceKey}/access`
+}
+
+export const updateTenantAdminStaffWorkspaceAccess = async (workspaceKey: TenantAdminStaffWorkspaceKey,
+    workspaceAccessRequest: WorkspaceAccessRequest, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspace> => {
+
+  return customFetch<TenantAdminStaffWorkspace>(getUpdateTenantAdminStaffWorkspaceAccessUrl(workspaceKey),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceAccessRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantAdminStaffWorkspaceAccessMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceAccessRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceAccessRequest>}, TContext> => {
+
+const mutationKey = ['updateTenantAdminStaffWorkspaceAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>, {workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceAccessRequest>}> = (props) => {
+          const {workspaceKey,data} = props ?? {};
+
+          return  updateTenantAdminStaffWorkspaceAccess(workspaceKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantAdminStaffWorkspaceAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>>
+    export type UpdateTenantAdminStaffWorkspaceAccessMutationBody = BodyType<WorkspaceAccessRequest>
+    export type UpdateTenantAdminStaffWorkspaceAccessMutationError = ErrorType<unknown>
+
+    export const useUpdateTenantAdminStaffWorkspaceAccess = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>, TError,{workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceAccessRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantAdminStaffWorkspaceAccess>>,
+        TError,
+        {workspaceKey: TenantAdminStaffWorkspaceKey;data: BodyType<WorkspaceAccessRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantAdminStaffWorkspaceAccessMutationOptions(options));
+    }
+
+export const getLoginPlatformStaffUrl = () => {
+
+
+
+
+  return `/api/platform-staff/login`
+}
+
+export const loginPlatformStaff = async (loginRequest: LoginRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffSession> => {
+
+  return customFetch<PlatformStaffSession>(getLoginPlatformStaffUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(loginRequest)
+  }
+);}
+
+
+
+
+
+export const getLoginPlatformStaffMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginPlatformStaff>>, TError,{data: BodyType<LoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginPlatformStaff>>, TError,{data: BodyType<LoginRequest>}, TContext> => {
+
+const mutationKey = ['loginPlatformStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginPlatformStaff>>, {data: BodyType<LoginRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginPlatformStaff(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginPlatformStaffMutationResult = NonNullable<Awaited<ReturnType<typeof loginPlatformStaff>>>
+    export type LoginPlatformStaffMutationBody = BodyType<LoginRequest>
+    export type LoginPlatformStaffMutationError = ErrorType<ApiError>
+
+    export const useLoginPlatformStaff = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginPlatformStaff>>, TError,{data: BodyType<LoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof loginPlatformStaff>>,
+        TError,
+        {data: BodyType<LoginRequest>},
+        TContext
+      > => {
+      return useMutation(getLoginPlatformStaffMutationOptions(options));
+    }
+
+export const getLogoutPlatformStaffUrl = () => {
+
+
+
+
+  return `/api/platform-staff/logout`
+}
+
+export const logoutPlatformStaff = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffLogoutResponse> => {
+
+  return customFetch<PlatformStaffLogoutResponse>(getLogoutPlatformStaffUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutPlatformStaffMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutPlatformStaff>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logoutPlatformStaff>>, TError,void, TContext> => {
+
+const mutationKey = ['logoutPlatformStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutPlatformStaff>>, void> = () => {
+
+
+          return  logoutPlatformStaff(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutPlatformStaffMutationResult = NonNullable<Awaited<ReturnType<typeof logoutPlatformStaff>>>
+
+    export type LogoutPlatformStaffMutationError = ErrorType<unknown>
+
+    export const useLogoutPlatformStaff = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutPlatformStaff>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logoutPlatformStaff>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutPlatformStaffMutationOptions(options));
+    }
+
+export const getGetCurrentPlatformStaffUrl = () => {
+
+
+
+
+  return `/api/platform-staff/me`
+}
+
+export const getCurrentPlatformStaff = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffSession> => {
+
+  return customFetch<PlatformStaffSession>(getGetCurrentPlatformStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentPlatformStaffQueryKey = () => {
+    return [
+    `/api/platform-staff/me`
+    ] as const;
+    }
+
+
+export const getGetCurrentPlatformStaffQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentPlatformStaff>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlatformStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentPlatformStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentPlatformStaff>>> = ({ signal }) => getCurrentPlatformStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlatformStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentPlatformStaffQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentPlatformStaff>>>
+export type GetCurrentPlatformStaffQueryError = ErrorType<ApiError>
+
+
+
+export function useGetCurrentPlatformStaff<TData = Awaited<ReturnType<typeof getCurrentPlatformStaff>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlatformStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentPlatformStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getChangePlatformStaffPasswordUrl = () => {
+
+
+
+
+  return `/api/platform-staff/change-password`
+}
+
+export const changePlatformStaffPassword = async (changePasswordRequest: ChangePasswordRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffPasswordChangeResponse> => {
+
+  return customFetch<PlatformStaffPasswordChangeResponse>(getChangePlatformStaffPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(changePasswordRequest)
+  }
+);}
+
+
+
+
+
+export const getChangePlatformStaffPasswordMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changePlatformStaffPassword>>, TError,{data: BodyType<ChangePasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changePlatformStaffPassword>>, TError,{data: BodyType<ChangePasswordRequest>}, TContext> => {
+
+const mutationKey = ['changePlatformStaffPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changePlatformStaffPassword>>, {data: BodyType<ChangePasswordRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  changePlatformStaffPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangePlatformStaffPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof changePlatformStaffPassword>>>
+    export type ChangePlatformStaffPasswordMutationBody = BodyType<ChangePasswordRequest>
+    export type ChangePlatformStaffPasswordMutationError = ErrorType<ApiError>
+
+    export const useChangePlatformStaffPassword = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changePlatformStaffPassword>>, TError,{data: BodyType<ChangePasswordRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof changePlatformStaffPassword>>,
+        TError,
+        {data: BodyType<ChangePasswordRequest>},
+        TContext
+      > => {
+      return useMutation(getChangePlatformStaffPasswordMutationOptions(options));
+    }
+
+export const getGetPlatformStaffWorkspacesUrl = () => {
+
+
+
+
+  return `/api/platform-staff/workspaces`
+}
+
+export const getPlatformStaffWorkspaces = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspaceList> => {
+
+  return customFetch<ManagedRegistryWorkspaceList>(getGetPlatformStaffWorkspacesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlatformStaffWorkspacesQueryKey = () => {
+    return [
+    `/api/platform-staff/workspaces`
+    ] as const;
+    }
+
+
+export const getGetPlatformStaffWorkspacesQueryOptions = <TData = Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlatformStaffWorkspacesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>> = ({ signal }) => getPlatformStaffWorkspaces({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlatformStaffWorkspacesQueryResult = NonNullable<Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>>
+export type GetPlatformStaffWorkspacesQueryError = ErrorType<ApiError>
+
+
+
+export function useGetPlatformStaffWorkspaces<TData = Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlatformStaffWorkspacesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPlatformStaffWorkspaceUrl = (workspaceKey: PlatformWorkspaceKey,) => {
+
+
+
+
+  return `/api/platform-staff/workspaces/${workspaceKey}`
+}
+
+export const getPlatformStaffWorkspace = async (workspaceKey: PlatformWorkspaceKey, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspace> => {
+
+  return customFetch<ManagedRegistryWorkspace>(getGetPlatformStaffWorkspaceUrl(workspaceKey),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlatformStaffWorkspaceQueryKey = (workspaceKey: PlatformWorkspaceKey,) => {
+    return [
+    `/api/platform-staff/workspaces/${workspaceKey}`
+    ] as const;
+    }
+
+
+export const getGetPlatformStaffWorkspaceQueryOptions = <TData = Awaited<ReturnType<typeof getPlatformStaffWorkspace>>, TError = ErrorType<ApiError>>(workspaceKey: PlatformWorkspaceKey, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlatformStaffWorkspaceQueryKey(workspaceKey);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlatformStaffWorkspace>>> = ({ signal }) => getPlatformStaffWorkspace(workspaceKey, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: workspaceKey !== null && workspaceKey !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspace>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlatformStaffWorkspaceQueryResult = NonNullable<Awaited<ReturnType<typeof getPlatformStaffWorkspace>>>
+export type GetPlatformStaffWorkspaceQueryError = ErrorType<ApiError>
+
+
+
+export function useGetPlatformStaffWorkspace<TData = Awaited<ReturnType<typeof getPlatformStaffWorkspace>>, TError = ErrorType<ApiError>>(
+ workspaceKey: PlatformWorkspaceKey, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlatformStaffWorkspaceQueryOptions(workspaceKey,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPlatformStaffAdministrationUrl = () => {
+
+
+
+
+  return `/api/owner/platform-staff`
+}
+
+export const getPlatformStaffAdministration = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffSnapshot> => {
+
+  return customFetch<PlatformStaffSnapshot>(getGetPlatformStaffAdministrationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlatformStaffAdministrationQueryKey = () => {
+    return [
+    `/api/owner/platform-staff`
+    ] as const;
+    }
+
+
+export const getGetPlatformStaffAdministrationQueryOptions = <TData = Awaited<ReturnType<typeof getPlatformStaffAdministration>>, TError = ErrorType<ApiError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlatformStaffAdministrationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlatformStaffAdministration>>> = ({ signal }) => getPlatformStaffAdministration({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffAdministration>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlatformStaffAdministrationQueryResult = NonNullable<Awaited<ReturnType<typeof getPlatformStaffAdministration>>>
+export type GetPlatformStaffAdministrationQueryError = ErrorType<ApiError>
+
+
+
+export function useGetPlatformStaffAdministration<TData = Awaited<ReturnType<typeof getPlatformStaffAdministration>>, TError = ErrorType<ApiError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformStaffAdministration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlatformStaffAdministrationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePlatformStaffUrl = () => {
+
+
+
+
+  return `/api/owner/platform-staff`
+}
+
+export const createPlatformStaff = async (platformStaffCreateRequest: PlatformStaffCreateRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffCreateResponse> => {
+
+  return customFetch<PlatformStaffCreateResponse>(getCreatePlatformStaffUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(platformStaffCreateRequest)
+  }
+);}
+
+
+
+
+
+export const getCreatePlatformStaffMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformStaff>>, TError,{data: BodyType<PlatformStaffCreateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlatformStaff>>, TError,{data: BodyType<PlatformStaffCreateRequest>}, TContext> => {
+
+const mutationKey = ['createPlatformStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlatformStaff>>, {data: BodyType<PlatformStaffCreateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlatformStaff(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlatformStaffMutationResult = NonNullable<Awaited<ReturnType<typeof createPlatformStaff>>>
+    export type CreatePlatformStaffMutationBody = BodyType<PlatformStaffCreateRequest>
+    export type CreatePlatformStaffMutationError = ErrorType<ApiError>
+
+    export const useCreatePlatformStaff = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformStaff>>, TError,{data: BodyType<PlatformStaffCreateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlatformStaff>>,
+        TError,
+        {data: BodyType<PlatformStaffCreateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreatePlatformStaffMutationOptions(options));
+    }
+
+export const getDeletePlatformStaffUrl = (platformStaffId: string,) => {
+
+
+
+
+  return `/api/owner/platform-staff/${platformStaffId}`
+}
+
+export const deletePlatformStaff = async (platformStaffId: string, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffDeletionResponse> => {
+
+  return customFetch<PlatformStaffDeletionResponse>(getDeletePlatformStaffUrl(platformStaffId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePlatformStaffMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePlatformStaff>>, TError,{platformStaffId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePlatformStaff>>, TError,{platformStaffId: string}, TContext> => {
+
+const mutationKey = ['deletePlatformStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePlatformStaff>>, {platformStaffId: string}> = (props) => {
+          const {platformStaffId} = props ?? {};
+
+          return  deletePlatformStaff(platformStaffId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePlatformStaffMutationResult = NonNullable<Awaited<ReturnType<typeof deletePlatformStaff>>>
+
+    export type DeletePlatformStaffMutationError = ErrorType<ApiError>
+
+    export const useDeletePlatformStaff = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePlatformStaff>>, TError,{platformStaffId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePlatformStaff>>,
+        TError,
+        {platformStaffId: string},
+        TContext
+      > => {
+      return useMutation(getDeletePlatformStaffMutationOptions(options));
+    }
+
+export const getUpdatePlatformStaffWorkspacesUrl = (platformStaffId: string,) => {
+
+
+
+
+  return `/api/owner/platform-staff/${platformStaffId}/workspaces`
+}
+
+export const updatePlatformStaffWorkspaces = async (platformStaffId: string,
+    platformStaffWorkspacesRequest: PlatformStaffWorkspacesRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffWorkspacesResponse> => {
+
+  return customFetch<PlatformStaffWorkspacesResponse>(getUpdatePlatformStaffWorkspacesUrl(platformStaffId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(platformStaffWorkspacesRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformStaffWorkspacesMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffWorkspacesRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffWorkspacesRequest>}, TContext> => {
+
+const mutationKey = ['updatePlatformStaffWorkspaces'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>, {platformStaffId: string;data: BodyType<PlatformStaffWorkspacesRequest>}> = (props) => {
+          const {platformStaffId,data} = props ?? {};
+
+          return  updatePlatformStaffWorkspaces(platformStaffId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformStaffWorkspacesMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>>
+    export type UpdatePlatformStaffWorkspacesMutationBody = BodyType<PlatformStaffWorkspacesRequest>
+    export type UpdatePlatformStaffWorkspacesMutationError = ErrorType<ApiError>
+
+    export const useUpdatePlatformStaffWorkspaces = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffWorkspacesRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformStaffWorkspaces>>,
+        TError,
+        {platformStaffId: string;data: BodyType<PlatformStaffWorkspacesRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformStaffWorkspacesMutationOptions(options));
+    }
+
+export const getUpdatePlatformStaffStatusUrl = (platformStaffId: string,) => {
+
+
+
+
+  return `/api/owner/platform-staff/${platformStaffId}/status`
+}
+
+export const updatePlatformStaffStatus = async (platformStaffId: string,
+    activeStatusRequest: ActiveStatusRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffStatusResponse> => {
+
+  return customFetch<PlatformStaffStatusResponse>(getUpdatePlatformStaffStatusUrl(platformStaffId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(activeStatusRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformStaffStatusMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffStatus>>, TError,{platformStaffId: string;data: BodyType<ActiveStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffStatus>>, TError,{platformStaffId: string;data: BodyType<ActiveStatusRequest>}, TContext> => {
+
+const mutationKey = ['updatePlatformStaffStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformStaffStatus>>, {platformStaffId: string;data: BodyType<ActiveStatusRequest>}> = (props) => {
+          const {platformStaffId,data} = props ?? {};
+
+          return  updatePlatformStaffStatus(platformStaffId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformStaffStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformStaffStatus>>>
+    export type UpdatePlatformStaffStatusMutationBody = BodyType<ActiveStatusRequest>
+    export type UpdatePlatformStaffStatusMutationError = ErrorType<ApiError>
+
+    export const useUpdatePlatformStaffStatus = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformStaffStatus>>, TError,{platformStaffId: string;data: BodyType<ActiveStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformStaffStatus>>,
+        TError,
+        {platformStaffId: string;data: BodyType<ActiveStatusRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformStaffStatusMutationOptions(options));
+    }
+
+export const getResetPlatformStaffPasswordUrl = (platformStaffId: string,) => {
+
+
+
+
+  return `/api/owner/platform-staff/${platformStaffId}/reset-password`
+}
+
+export const resetPlatformStaffPassword = async (platformStaffId: string,
+    platformStaffPasswordResetRequest: PlatformStaffPasswordResetRequest, options?: Parameters<typeof customFetch>[1]): Promise<PlatformStaffPasswordResetResponse> => {
+
+  return customFetch<PlatformStaffPasswordResetResponse>(getResetPlatformStaffPasswordUrl(platformStaffId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(platformStaffPasswordResetRequest)
+  }
+);}
+
+
+
+
+
+export const getResetPlatformStaffPasswordMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPlatformStaffPassword>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetPlatformStaffPassword>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffPasswordResetRequest>}, TContext> => {
+
+const mutationKey = ['resetPlatformStaffPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetPlatformStaffPassword>>, {platformStaffId: string;data: BodyType<PlatformStaffPasswordResetRequest>}> = (props) => {
+          const {platformStaffId,data} = props ?? {};
+
+          return  resetPlatformStaffPassword(platformStaffId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetPlatformStaffPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetPlatformStaffPassword>>>
+    export type ResetPlatformStaffPasswordMutationBody = BodyType<PlatformStaffPasswordResetRequest>
+    export type ResetPlatformStaffPasswordMutationError = ErrorType<ApiError>
+
+    export const useResetPlatformStaffPassword = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPlatformStaffPassword>>, TError,{platformStaffId: string;data: BodyType<PlatformStaffPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetPlatformStaffPassword>>,
+        TError,
+        {platformStaffId: string;data: BodyType<PlatformStaffPasswordResetRequest>},
+        TContext
+      > => {
+      return useMutation(getResetPlatformStaffPasswordMutationOptions(options));
+    }
+
+export const getGetPlatformWorkspacesUrl = () => {
+
+
+
+
+  return `/api/owner/workspaces`
+}
+
+export const getPlatformWorkspaces = async ( options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspaceList> => {
+
+  return customFetch<ManagedRegistryWorkspaceList>(getGetPlatformWorkspacesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlatformWorkspacesQueryKey = () => {
+    return [
+    `/api/owner/workspaces`
+    ] as const;
+    }
+
+
+export const getGetPlatformWorkspacesQueryOptions = <TData = Awaited<ReturnType<typeof getPlatformWorkspaces>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformWorkspaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlatformWorkspacesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlatformWorkspaces>>> = ({ signal }) => getPlatformWorkspaces({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlatformWorkspaces>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlatformWorkspacesQueryResult = NonNullable<Awaited<ReturnType<typeof getPlatformWorkspaces>>>
+export type GetPlatformWorkspacesQueryError = ErrorType<unknown>
+
+
+
+export function useGetPlatformWorkspaces<TData = Awaited<ReturnType<typeof getPlatformWorkspaces>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlatformWorkspaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlatformWorkspacesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePlatformWorkspaceUrl = () => {
+
+
+
+
+  return `/api/owner/workspaces`
+}
+
+export const createPlatformWorkspace = async (workspaceMetadataRequest: WorkspaceMetadataRequest, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspace> => {
+
+  return customFetch<ManagedRegistryWorkspace>(getCreatePlatformWorkspaceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceMetadataRequest)
+  }
+);}
+
+
+
+
+
+export const getCreatePlatformWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlatformWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext> => {
+
+const mutationKey = ['createPlatformWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlatformWorkspace>>, {data: BodyType<WorkspaceMetadataRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlatformWorkspace(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlatformWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof createPlatformWorkspace>>>
+    export type CreatePlatformWorkspaceMutationBody = BodyType<WorkspaceMetadataRequest>
+    export type CreatePlatformWorkspaceMutationError = ErrorType<unknown>
+
+    export const useCreatePlatformWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformWorkspace>>, TError,{data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlatformWorkspace>>,
+        TError,
+        {data: BodyType<WorkspaceMetadataRequest>},
+        TContext
+      > => {
+      return useMutation(getCreatePlatformWorkspaceMutationOptions(options));
+    }
+
+export const getAddPlatformWorkspaceHierarchyNodeUrl = () => {
+
+
+
+
+  return `/api/owner/workspaces/hierarchy`
+}
+
+export const addPlatformWorkspaceHierarchyNode = async (workspaceHierarchyNodeInput: WorkspaceHierarchyNodeInput, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspaceList> => {
+
+  return customFetch<ManagedRegistryWorkspaceList>(getAddPlatformWorkspaceHierarchyNodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeInput)
+  }
+);}
+
+
+
+
+
+export const getAddPlatformWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext> => {
+
+const mutationKey = ['addPlatformWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>, {data: BodyType<WorkspaceHierarchyNodeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addPlatformWorkspaceHierarchyNode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddPlatformWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>>
+    export type AddPlatformWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeInput>
+    export type AddPlatformWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    export const useAddPlatformWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>, TError,{data: BodyType<WorkspaceHierarchyNodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addPlatformWorkspaceHierarchyNode>>,
+        TError,
+        {data: BodyType<WorkspaceHierarchyNodeInput>},
+        TContext
+      > => {
+      return useMutation(getAddPlatformWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getUpdatePlatformWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/owner/workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+export const updatePlatformWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,
+    workspaceHierarchyNodeUpdate: WorkspaceHierarchyNodeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspaceList> => {
+
+  return customFetch<ManagedRegistryWorkspaceList>(getUpdatePlatformWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceHierarchyNodeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext> => {
+
+const mutationKey = ['updatePlatformWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}> = (props) => {
+          const {nodeType,nodeKey,data} = props ?? {};
+
+          return  updatePlatformWorkspaceHierarchyNode(nodeType,nodeKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>>
+    export type UpdatePlatformWorkspaceHierarchyNodeMutationBody = BodyType<WorkspaceHierarchyNodeUpdate>
+    export type UpdatePlatformWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    export const useUpdatePlatformWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey;data: BodyType<WorkspaceHierarchyNodeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getRemovePlatformWorkspaceHierarchyNodeUrl = (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey,) => {
+
+
+
+
+  return `/api/owner/workspaces/hierarchy/${nodeType}/${nodeKey}`
+}
+
+export const removePlatformWorkspaceHierarchyNode = async (nodeType: WorkspaceContentNodeType,
+    nodeKey: WorkspaceContentNodeKey, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspaceList> => {
+
+  return customFetch<ManagedRegistryWorkspaceList>(getRemovePlatformWorkspaceHierarchyNodeUrl(nodeType,nodeKey),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemovePlatformWorkspaceHierarchyNodeMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext> => {
+
+const mutationKey = ['removePlatformWorkspaceHierarchyNode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>, {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}> = (props) => {
+          const {nodeType,nodeKey} = props ?? {};
+
+          return  removePlatformWorkspaceHierarchyNode(nodeType,nodeKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemovePlatformWorkspaceHierarchyNodeMutationResult = NonNullable<Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>>
+
+    export type RemovePlatformWorkspaceHierarchyNodeMutationError = ErrorType<ApiError>
+
+    export const useRemovePlatformWorkspaceHierarchyNode = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>, TError,{nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removePlatformWorkspaceHierarchyNode>>,
+        TError,
+        {nodeType: WorkspaceContentNodeType;nodeKey: WorkspaceContentNodeKey},
+        TContext
+      > => {
+      return useMutation(getRemovePlatformWorkspaceHierarchyNodeMutationOptions(options));
+    }
+
+export const getUpdatePlatformWorkspaceUrl = (workspaceKey: string,) => {
+
+
+
+
+  return `/api/owner/workspaces/${workspaceKey}`
+}
+
+export const updatePlatformWorkspace = async (workspaceKey: string,
+    workspaceMetadataRequest: WorkspaceMetadataRequest, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspace> => {
+
+  return customFetch<ManagedRegistryWorkspace>(getUpdatePlatformWorkspaceUrl(workspaceKey),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceMetadataRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspace>>, TError,{workspaceKey: string;data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspace>>, TError,{workspaceKey: string;data: BodyType<WorkspaceMetadataRequest>}, TContext> => {
+
+const mutationKey = ['updatePlatformWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformWorkspace>>, {workspaceKey: string;data: BodyType<WorkspaceMetadataRequest>}> = (props) => {
+          const {workspaceKey,data} = props ?? {};
+
+          return  updatePlatformWorkspace(workspaceKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformWorkspace>>>
+    export type UpdatePlatformWorkspaceMutationBody = BodyType<WorkspaceMetadataRequest>
+    export type UpdatePlatformWorkspaceMutationError = ErrorType<unknown>
+
+    export const useUpdatePlatformWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspace>>, TError,{workspaceKey: string;data: BodyType<WorkspaceMetadataRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformWorkspace>>,
+        TError,
+        {workspaceKey: string;data: BodyType<WorkspaceMetadataRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformWorkspaceMutationOptions(options));
+    }
+
+export const getRemovePlatformWorkspaceUrl = (workspaceKey: string,) => {
+
+
+
+
+  return `/api/owner/workspaces/${workspaceKey}`
+}
+
+export const removePlatformWorkspace = async (workspaceKey: string, options?: Parameters<typeof customFetch>[1]): Promise<ModuleWorkspaceRemovedResponse> => {
+
+  return customFetch<ModuleWorkspaceRemovedResponse>(getRemovePlatformWorkspaceUrl(workspaceKey),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemovePlatformWorkspaceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspace>>, TError,{workspaceKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspace>>, TError,{workspaceKey: string}, TContext> => {
+
+const mutationKey = ['removePlatformWorkspace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removePlatformWorkspace>>, {workspaceKey: string}> = (props) => {
+          const {workspaceKey} = props ?? {};
+
+          return  removePlatformWorkspace(workspaceKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemovePlatformWorkspaceMutationResult = NonNullable<Awaited<ReturnType<typeof removePlatformWorkspace>>>
+
+    export type RemovePlatformWorkspaceMutationError = ErrorType<unknown>
+
+    export const useRemovePlatformWorkspace = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePlatformWorkspace>>, TError,{workspaceKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removePlatformWorkspace>>,
+        TError,
+        {workspaceKey: string},
+        TContext
+      > => {
+      return useMutation(getRemovePlatformWorkspaceMutationOptions(options));
+    }
+
+export const getUpdatePlatformWorkspaceAccessUrl = (workspaceKey: string,) => {
+
+
+
+
+  return `/api/owner/workspaces/${workspaceKey}/access`
+}
+
+export const updatePlatformWorkspaceAccess = async (workspaceKey: string,
+    workspaceAccessRequest: WorkspaceAccessRequest, options?: Parameters<typeof customFetch>[1]): Promise<ManagedRegistryWorkspace> => {
+
+  return customFetch<ManagedRegistryWorkspace>(getUpdatePlatformWorkspaceAccessUrl(workspaceKey),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workspaceAccessRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlatformWorkspaceAccessMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>, TError,{workspaceKey: string;data: BodyType<WorkspaceAccessRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>, TError,{workspaceKey: string;data: BodyType<WorkspaceAccessRequest>}, TContext> => {
+
+const mutationKey = ['updatePlatformWorkspaceAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>, {workspaceKey: string;data: BodyType<WorkspaceAccessRequest>}> = (props) => {
+          const {workspaceKey,data} = props ?? {};
+
+          return  updatePlatformWorkspaceAccess(workspaceKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlatformWorkspaceAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>>
+    export type UpdatePlatformWorkspaceAccessMutationBody = BodyType<WorkspaceAccessRequest>
+    export type UpdatePlatformWorkspaceAccessMutationError = ErrorType<unknown>
+
+    export const useUpdatePlatformWorkspaceAccess = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>, TError,{workspaceKey: string;data: BodyType<WorkspaceAccessRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlatformWorkspaceAccess>>,
+        TError,
+        {workspaceKey: string;data: BodyType<WorkspaceAccessRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlatformWorkspaceAccessMutationOptions(options));
+    }
+
+export const getGetTenantAdminStaffWorkspaceAccessUrl = (workspaceKey: TenantAdminStaffWorkspaceKey,) => {
+
+
+
+
+  return `/api/tenant-admin-staff/${workspaceKey}/access`
+}
+
+/**
+ * @summary Authorize a tenant admin staff workspace destination
+ */
+export const getTenantAdminStaffWorkspaceAccess = async (workspaceKey: TenantAdminStaffWorkspaceKey, options?: Parameters<typeof customFetch>[1]): Promise<TenantAdminStaffWorkspaceAccess> => {
+
+  return customFetch<TenantAdminStaffWorkspaceAccess>(getGetTenantAdminStaffWorkspaceAccessUrl(workspaceKey),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTenantAdminStaffWorkspaceAccessQueryKey = (workspaceKey: TenantAdminStaffWorkspaceKey,) => {
+    return [
+    `/api/tenant-admin-staff/${workspaceKey}/access`
+    ] as const;
+    }
+
+
+export const getGetTenantAdminStaffWorkspaceAccessQueryOptions = <TData = Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>, TError = ErrorType<void>>(workspaceKey: TenantAdminStaffWorkspaceKey, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantAdminStaffWorkspaceAccessQueryKey(workspaceKey);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>> = ({ signal }) => getTenantAdminStaffWorkspaceAccess(workspaceKey, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: workspaceKey !== null && workspaceKey !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTenantAdminStaffWorkspaceAccessQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>>
+export type GetTenantAdminStaffWorkspaceAccessQueryError = ErrorType<void>
+
+
+/**
+ * @summary Authorize a tenant admin staff workspace destination
+ */
+
+export function useGetTenantAdminStaffWorkspaceAccess<TData = Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>, TError = ErrorType<void>>(
+ workspaceKey: TenantAdminStaffWorkspaceKey, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantAdminStaffWorkspaceAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTenantAdminStaffWorkspaceAccessQueryOptions(workspaceKey,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

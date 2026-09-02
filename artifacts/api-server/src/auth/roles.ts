@@ -9,6 +9,7 @@ export const LOCAL_ACCOUNT_ROLES = [
   "module_admin",
   "module_staff",
   "client",
+  "tenant_admin_staff",
 ] as const;
 
 export type LocalAccountRole = (typeof LOCAL_ACCOUNT_ROLES)[number];
@@ -17,6 +18,7 @@ export interface LocalAccountAssignments {
   readonly moduleKey: ModuleSchemaName | null;
   readonly workspaceKeys: readonly string[];
   readonly workspaceAssignments: readonly WorkspaceAssignment[];
+  readonly tenantAdminStaffWorkspaceKeys: readonly string[];
 }
 
 export interface WorkspaceAssignment {
@@ -42,6 +44,11 @@ export async function loadAccountAssignments(
     .distinct("module_schema", "workspace_key")
     .where({ client_account_id: accountId, can_view: true });
 
+  const tenantAdminStaffWorkspaceRows = await database<{ workspace_key: string }>(
+    "core_admin.tenant_admin_staff_workspace_assignments",
+  )
+    .select("workspace_key")
+    .where("account_id", accountId);
   const moduleKey =
     MODULE_SCHEMA_NAMES.find((value) => value === assignedModuleKey) ??
     rows
@@ -68,6 +75,7 @@ export async function loadAccountAssignments(
         .map((assignment) => assignment.workspaceKey),
     )].sort(),
     workspaceAssignments,
+    tenantAdminStaffWorkspaceKeys: tenantAdminStaffWorkspaceRows.map((row) => row.workspace_key).sort(),
   };
 }
 
@@ -80,6 +88,7 @@ export function canAccessWorkspace(
   workspaceKey: string,
 ): boolean {
   if (!enabledModules.includes(moduleKey)) return false;
+  if (role === "tenant_admin_staff") return false;
   if (role === "tenant_admin") return true;
   if (role === "module_admin") return assignedModule === moduleKey;
   if (role === "module_staff" && assignedModule !== moduleKey) return false;

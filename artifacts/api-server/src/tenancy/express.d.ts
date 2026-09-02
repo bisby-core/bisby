@@ -11,6 +11,7 @@ export interface AuthenticatedLocalUser {
   readonly moduleKey: ModuleSchemaName | null;
   readonly workspaceKeys: readonly string[];
   readonly workspaceAssignments: readonly WorkspaceAssignment[];
+  readonly tenantAdminStaffWorkspaceKeys?: readonly string[];
   readonly requiresPasswordChange: boolean;
 }
 

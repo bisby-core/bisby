@@ -8,7 +8,7 @@ import {
 
 const DEFAULT_ADMIN_PASSWORD = "password123";
 const ADMIN_USERNAME = "admin";
-const ADMIN_DISPLAY_NAME = "BisBy Administrator";
+const ADMIN_DISPLAY_NAME = "BisBy Tenant Admin";
 const PERMISSION_TAB_KEY = "workspace_access";
 const WORKSPACE_KEYS = Array.from(
   { length: 10 },
@@ -18,7 +18,7 @@ const WORKSPACE_KEYS = Array.from(
 const INITIAL_TENANTS = [
   {
     subdomain: "design",
-    displayName: "Master Design Studio",
+    displayName: "Design",
     databaseNameEnv: "BISBY_DESIGN_DB_NAME",
   },
   {
@@ -119,7 +119,7 @@ async function seedTenantDatabase(
       .first<{ id: string }>();
 
     if (!account) {
-      throw new Error("The seeded administrator account could not be loaded.");
+      throw new Error("The seeded tenant admin account could not be loaded.");
     }
 
     const permissions = MODULE_SCHEMA_NAMES.flatMap((moduleSchema) =>
@@ -256,11 +256,11 @@ async function main(): Promise<void> {
 
     if (!configuredPassword) {
       console.warn(
-        "Development administrator credentials were seeded with the built-in test default; change the password before production use.",
+        "Development tenant admin credentials were seeded with the built-in test default; change the password before production use.",
       );
     }
     console.log(
-      "BisBy provisioning complete: master schema migrated; design and clientalpha tenant schemas migrated; eight modules activated; administrator accounts and workspace permissions upserted; repeatable seed successful.",
+      "BisBy provisioning complete: master schema migrated; design and clientalpha tenant schemas migrated; eight modules activated; tenant admin accounts and workspace permissions upserted; repeatable seed successful.",
     );
   } finally {
     await Promise.all([

@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Activity,
+  ArrowLeft,
   ArrowUpRight,
   Check,
   ChevronRight,
@@ -15,23 +16,30 @@ import {
   Radio,
   RotateCcw,
   ShieldAlert,
-  Terminal,
 } from 'lucide-react';
 import {
   useGetPublicTenantWorkspaces,
   getGetPublicTenantWorkspacesQueryKey,
   getGetContentAccessQueryKey,
   getGetRouteAccessQueryKey,
+  getGetTenantAdminQueryKey,
   getGetCurrentUserQueryKey,
   ModuleKey,
+  type AuthenticatedLocalUser,
+  type ManagedWorkspaceOption,
   type PublicWorkspace,
   setBaseUrl,
   useChangePassword,
   useLogin,
   useLogout,
   useGetCurrentUser,
+  useGetTenantAdmin,
+  useGetCustomerContext,
+  getGetCustomerContextQueryKey,
   useGetContentAccess,
   useGetRouteAccess,
+  useGetTenantAdminStaffWorkspaceAccess,
+  getGetTenantAdminStaffWorkspaceAccessQueryKey,
   useHealthCheck,
   WorkspaceKey,
 } from '@workspace/api-client-react';
@@ -43,8 +51,9 @@ import {
   useLocation,
   Router as WouterRouter,
 } from 'wouter';
-import { OwnerControlPlane } from '@/owner/OwnerControlPlane';
+import { OwnerControlPlane, OwnerHome } from '@/owner/OwnerControlPlane';
 import { AdminControlPlane } from '@/admin/AdminControlPlane';
+import { PlatformStaffChangePassword, PlatformStaffHome, PlatformStaffLogin } from '@/platform-staff/PlatformStaffPortal';
 import { BISBY_ROOT_DOMAIN } from '@/config';
 
 const queryClient = new QueryClient();
@@ -73,42 +82,25 @@ const workspaceKeyFor = (number: string): WorkspaceKey | null => {
     : null;
 };
 
-const configuredDevelopmentPlane = (
+const developmentPlane = (
   import.meta.env.VITE_BISBY_DEV_PLANE as string | undefined
 )?.toLowerCase();
-const requestedDevelopmentPlane = import.meta.env.DEV
-  ? new URLSearchParams(window.location.search).get('plane')?.toLowerCase()
-  : undefined;
-const developmentPlane =
-  requestedDevelopmentPlane === 'platform' ||
-  requestedDevelopmentPlane === 'design' ||
-  requestedDevelopmentPlane === 'clientalpha'
-    ? requestedDevelopmentPlane
-    : configuredDevelopmentPlane;
 
 if (
   import.meta.env.DEV &&
-  (developmentPlane === 'design' || developmentPlane === 'clientalpha')
+  developmentPlane === 'design'
 ) {
-  setBaseUrl(`/__bisby-dev/${developmentPlane}`);
+  setBaseUrl('/__bisby-dev/design');
 } else {
   setBaseUrl(null);
 }
 
-const developmentTenantName =
-  developmentPlane === 'design'
-    ? 'Design'
-    : developmentPlane === 'clientalpha'
-      ? 'Clientalpha'
-      : null;
+const developmentTenantName = developmentPlane === 'design' ? 'Design' : null;
 
 const tenantPlaneHref = (path: string): string =>
-  import.meta.env.DEV &&
-  (developmentPlane === 'design' || developmentPlane === 'clientalpha')
-    ? `${path}?plane=${developmentPlane}`
-    : path;
+  path;
 
-export const tenantNameFromHostname = (hostname: string): string | null => {
+export const customerNameFromHostname = (hostname: string): string | null => {
   if (import.meta.env.DEV && developmentTenantName) {
     return developmentTenantName;
   }
@@ -126,6 +118,18 @@ export const tenantNameFromHostname = (hostname: string): string | null => {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 };
+
+/** The registry value is authoritative; hostname formatting is only transitional. */
+export function useCustomerName(): string | null {
+  const context = useGetCustomerContext({
+    query: {
+      queryKey: getGetCustomerContextQueryKey(),
+      enabled: !isRootHostname(window.location.hostname),
+      retry: false,
+    },
+  });
+  return context.data?.customerName ?? customerNameFromHostname(window.location.hostname);
+}
 
 const isRootHostname = (hostname: string): boolean => {
   if (import.meta.env.DEV && developmentPlane) {
@@ -153,7 +157,7 @@ export const getErrorStatus = (error: unknown): number | undefined => {
   return candidate.status ?? candidate.statusCode ?? candidate.response?.status;
 };
 
-function BrandMark() {
+export function BrandMark() {
   return (
     <Link href="/" className="flex items-center gap-3" data-testid="link-home">
       <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))]">
@@ -176,6 +180,7 @@ function Shell({ children }: { children: ReactNode }) {
       enabled: !isRootHostname(window.location.hostname),
     },
   });
+  const customerName = useCustomerName();
   const visibleModuleLetters =
     currentUser.data?.role === 'module_admin' ||
     currentUser.data?.role === 'module_staff' ||
@@ -213,7 +218,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="mt-auto border-t border-[hsl(var(--sidebar-border))] pt-4">
           <div className="flex items-center gap-2.5 text-[hsl(var(--sidebar-foreground)/.56)]">
             <span className="h-2 w-2 rounded-full bg-[hsl(var(--sidebar-primary))]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em]">Tenant isolated</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em]">{customerName ? `${customerName} isolated` : 'Customer isolated'}</span>
           </div>
           <p className="mt-3 font-mono text-[10px] leading-5 text-[hsl(var(--sidebar-foreground)/.38)]">
             Access is resolved from
@@ -233,7 +238,7 @@ function Shell({ children }: { children: ReactNode }) {
         </div>
         <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
           <LockKeyhole className="h-3.5 w-3.5" />
-          Tenant scoped
+          {customerName ? `${customerName} scoped` : 'Customer scoped'}
         </div>
       </header>
       <main className="md:ml-[232px]">{children}</main>
@@ -286,19 +291,19 @@ function Home() {
     return <OwnerControlPlane rootDomain={BISBY_ROOT_DOMAIN} />;
   }
   const healthStatus = health.isLoading ? 'checking' : health.isError ? 'unavailable' : 'reachable';
-  const tenantName = tenantNameFromHostname(window.location.hostname);
+  const customerName = useCustomerName();
   const tenantPublicWorkspaces = (publicData.data?.workspaces ?? []).filter(
     (workspace) => workspace.scope === 'tenant',
   );
   return (
-    <RouteFrame eyebrow="BisBy / entry point" title={tenantName ? `${tenantName} Entry Portal` : 'A precise way in.'}>
+    <RouteFrame eyebrow="BisBy / entry point" title={customerName ? `${customerName} Entry Portal` : 'A precise way in.'}>
       <div className="mt-12 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
         <section className="bisby-reveal border border-[hsl(var(--border))] bg-[hsl(var(--card)/.76)] p-6 [animation-delay:160ms] md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant URL format</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Customer URL format</p>
               <p className="mt-5 break-all font-mono text-lg leading-relaxed text-[hsl(var(--foreground))] md:text-2xl">
-                <span className="text-[hsl(var(--accent))]">{'{tenant}'}</span>
+                <span className="text-[hsl(var(--accent))]">{'{customer}'}</span>
                 <span className="text-[hsl(var(--muted-foreground))]">.{BISBY_ROOT_DOMAIN}/</span>
                 <span className="text-[hsl(var(--secondary-foreground))]">a</span>
                 <span className="text-[hsl(var(--muted-foreground))]">/ws-</span>
@@ -308,7 +313,7 @@ function Home() {
             <ArrowUpRight className="h-5 w-5 shrink-0 text-[hsl(var(--muted-foreground))]" />
           </div>
           <div className="mt-8 grid gap-3 border-t border-[hsl(var(--border))] pt-5 text-sm leading-6 text-[hsl(var(--muted-foreground))] md:grid-cols-2">
-            <p>Each tenant arrives through its own subdomain. The path selects the module and, when present, the workspace.</p>
+            <p>Each customer arrives through its own subdomain. The path selects the module and, when present, the workspace.</p>
             <p>Use a direct destination when you already know where work belongs. No ambiguous home screen is required.</p>
           </div>
         </section>
@@ -329,10 +334,10 @@ function Home() {
               </div>
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.15em]">
-                  {tenantName ? 'Authorized access point' : 'Destination pending'}
+                  {customerName ? 'Authorized access point' : 'Destination pending'}
                 </p>
                 <p className="mt-1 text-sm text-[hsl(var(--primary-foreground)/.62)]">
-                  {tenantName ? `Welcome back, ${tenantName} Team.` : 'Awaiting a tenant path.'}
+                  {customerName ? `Welcome back, ${customerName} Team.` : 'Awaiting a customer path.'}
                 </p>
               </div>
             </div>
@@ -365,25 +370,57 @@ function Home() {
 
       <PublicWorkspaceLinks
         workspaces={tenantPublicWorkspaces}
-        label="Tenant public surfaces"
+        label={customerName ? `${customerName} public entries` : 'Customer public entries'}
         animationDelay="360ms"
       />
 
       <div className="bisby-reveal mt-6 border-t border-[hsl(var(--border))] pt-6 [animation-delay:400ms]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">Tenant administrator access</p>
-            <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Sign in with a tenant-local administrator account to open the protected control panel.</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">organization administration access</p>
+            <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Sign in with a tenant admin account to open {customerName ? `${customerName} Admin Controls` : 'Tenant Admin Controls'}.</p>
           </div>
           <div>
             <Link href={tenantPlaneHref('/login')} className="group flex items-center gap-2 border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/.15)] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--secondary-foreground))] transition-colors hover:border-[hsl(var(--secondary))] hover:bg-[hsl(var(--secondary))] hover:text-[hsl(var(--secondary-foreground))]" data-testid="link-home-admin-sign-in">
-              <LogIn className="h-3.5 w-3.5" /> Tenant administrator sign-in
+              <LogIn className="h-3.5 w-3.5" /> organization administrator sign-in
             </Link>
           </div>
         </div>
       </div>
     </RouteFrame>
   );
+}
+
+function DevelopmentDesignHome() {
+  const [, setLocation] = useLocation();
+  const currentUser = useGetCurrentUser({
+    query: {
+      queryKey: getGetCurrentUserQueryKey(),
+      retry: false,
+    },
+  });
+
+  useEffect(() => {
+    if (currentUser.data?.role === 'tenant_admin') {
+      setLocation('/admin');
+    } else if (currentUser.isError) {
+      setLocation('/login');
+    }
+  }, [currentUser.data?.role, currentUser.isError, setLocation]);
+
+  if (
+    currentUser.isLoading ||
+    currentUser.isError ||
+    currentUser.data?.role === 'tenant_admin'
+  ) {
+    return (
+      <RouteFrame eyebrow="BisBy / Design studio" title="Opening Design Admin Controls">
+        <LoadingState label="Design administration session" />
+      </RouteFrame>
+    );
+  }
+
+  return <Home />;
 }
 
 export function LoadingState({ label }: { label: string }) {
@@ -408,12 +445,9 @@ function Login() {
   const login = useLogin();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const tenantName = tenantNameFromHostname(window.location.hostname);
-  const tenantLabel = tenantName ?? 'your tenant';
-  const entryHref =
-    import.meta.env.DEV && developmentPlane
-      ? `/?plane=${developmentPlane}`
-      : '/';
+  const customerName = useCustomerName();
+  const customerLabel = customerName ?? 'your organization';
+  const entryHref = '/';
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -431,8 +465,13 @@ function Login() {
       setPassword('');
       if (account.requiresPasswordChange) {
         setLocation('/change-password');
-      } else if (account.role === 'tenant_admin' || account.role === 'module_admin') {
+      } else if (account.role === 'tenant_admin_staff') {
+        setLocation(`/tenant-admin-staff/${account.workspaceKeys[0]}`);
+      } else if (account.role === 'tenant_admin') {
         setLocation('/admin');
+      } else if (account.role === 'module_admin') {
+        const moduleLetter = account.moduleKey?.replace('module_', '');
+        setLocation(moduleLetter ? `/${moduleLetter}/admin` : '/');
       } else {
         const mod = account.moduleKey ? account.moduleKey.replace('module_', '') : 'a';
         const ws = account.workspaceKeys && account.workspaceKeys.length > 0 ? account.workspaceKeys[0] : 'ws-1';
@@ -445,7 +484,7 @@ function Login() {
 
   const errorStatus = getErrorStatus(login.error);
   return (
-    <RouteFrame eyebrow={`BisBy / ${tenantName ? `${tenantName} ` : ''}local access`} title={`Sign in to ${tenantLabel}.`}>
+    <RouteFrame eyebrow={`BisBy / ${customerName ? `${customerName} ` : ''}local access`} title={`Sign in to ${customerLabel}.`}>
       <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_.8fr]">
         <form
           onSubmit={handleSubmit}
@@ -457,8 +496,8 @@ function Login() {
               <LogIn className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">{tenantName ?? 'Tenant'}-local account</p>
-              <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Credentials stay inside the resolved {tenantLabel} database.</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">{customerName ?? 'Customer'}-local account</p>
+              <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Credentials stay inside the resolved {customerLabel} database.</p>
             </div>
           </div>
           <label className="mt-10 block font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]" htmlFor="username">
@@ -490,7 +529,7 @@ function Login() {
           />
           {login.isError && (
             <p className="mt-5 border-l-2 border-[hsl(var(--accent))] pl-3 text-sm leading-6 text-[hsl(var(--accent-foreground))]" data-testid="status-login-error">
-              {errorStatus === 401 ? 'The username or password was not accepted.' : 'This tenant could not complete the sign-in request.'}
+               {errorStatus === 401 ? 'The username or password was not accepted.' : 'This organization could not complete the sign-in request.'}
             </p>
           )}
           <button
@@ -505,9 +544,9 @@ function Login() {
         </form>
         <div className="border border-[hsl(var(--border))] bg-[hsl(var(--primary))] p-6 text-[hsl(var(--primary-foreground))] md:p-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--primary-foreground)/.58)]">Access boundary</p>
-          <p className="mt-12 text-2xl font-semibold tracking-[-0.035em]">One account. One {tenantLabel} database.</p>
+           <p className="mt-12 text-2xl font-semibold tracking-[-0.035em]">One account. One {customerLabel} database.</p>
           <p className="mt-4 text-sm leading-6 text-[hsl(var(--primary-foreground)/.64)]">
-            Sign in from the {tenantLabel} tenant subdomain so BisBy can resolve the correct local account store before checking workspace permissions.
+             Sign in from the {customerLabel} customer subdomain so BisBy can resolve the correct local account store before checking workspace permissions.
           </p>
           <div className="mt-10 border-t border-[hsl(var(--primary-foreground)/.18)] pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground)/.5)]">
             Session expires after 8 hours
@@ -552,8 +591,13 @@ function ChangePassword() {
 
       const user = currentUser.data;
       if (user) {
-        if (user.role === 'tenant_admin' || user.role === 'module_admin') {
+        if (user.role === 'tenant_admin_staff') {
+          setLocation(`/tenant-admin-staff/${user.workspaceKeys[0]}`);
+        } else if (user.role === 'tenant_admin') {
           setLocation('/admin');
+        } else if (user.role === 'module_admin') {
+          const moduleLetter = user.moduleKey?.replace('module_', '');
+          setLocation(moduleLetter ? `/${moduleLetter}/admin` : '/');
         } else {
           const mod = user.moduleKey ? user.moduleKey.replace('module_', '') : 'a';
           const ws = user.workspaceKeys && user.workspaceKeys.length > 0 ? user.workspaceKeys[0] : 'ws-1';
@@ -569,7 +613,7 @@ function ChangePassword() {
 
   const errorStatus = getErrorStatus(changePassword.error);
   return (
-    <RouteFrame eyebrow="BisBy / tenant security" title="Set your permanent password.">
+    <RouteFrame eyebrow="BisBy / organization security" title="Set your permanent password.">
       <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_.8fr]">
         <form
           onSubmit={handleSubmit}
@@ -650,7 +694,7 @@ function ChangePassword() {
           <ShieldAlert className="h-8 w-8 text-[hsl(var(--secondary))]" />
           <p className="mt-12 text-2xl font-semibold tracking-[-0.035em]">Workspace access remains locked.</p>
           <p className="mt-4 text-sm leading-6 text-[hsl(var(--primary-foreground)/.64)]">
-            The permanent password is stored only as a tenant-local scrypt hash. Your temporary credential stops working after this change.
+            The permanent password is stored only as a customer-local scrypt hash. Your temporary credential stops working after this change.
           </p>
         </section>
       </div>
@@ -664,9 +708,9 @@ function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; 
     : status === 428
       ? { code: '428', title: 'Permanent password required', body: 'This account must replace its temporary password before workspace access can be resolved.' }
     : status === 403
-      ? { code: '403', title: 'Destination not assigned', body: 'The account is known, but this tenant, module, or workspace is not assigned to it.' }
+      ? { code: '403', title: 'Destination not assigned', body: 'The account is known, but this customer space, module, or workspace is not assigned to it.' }
       : status === 404
-        ? { code: '404', title: 'Destination not found', body: 'This route is valid in shape, but the requested tenant destination does not exist.' }
+        ? { code: '404', title: 'Destination not found', body: 'This route is valid in shape, but the requested customer destination does not exist.' }
         : { code: '—', title: 'Access check unavailable', body: 'BisBy could not resolve this destination right now. The route remains intentionally blocked.' };
   return (
     <div className="mt-12 grid gap-6 border border-[hsl(var(--accent)/.52)] bg-[hsl(var(--card)/.72)] p-6 md:grid-cols-[auto_1fr_auto] md:items-start md:p-8" data-testid={`status-route-error-${status ?? 'unknown'}`}>
@@ -696,7 +740,7 @@ function AccessError({ status, moduleLetter, workspaceKey }: { status?: number; 
   );
 }
 
-function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId }: { moduleLetter: ModuleLetter; workspaceKey: WorkspaceKey; subdomain: string; tenantId: string }) {
+function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, customerName }: { moduleLetter: ModuleLetter; workspaceKey: WorkspaceKey; subdomain: string; customerName: string }) {
   const isDashboard = workspaceKey === 'ws-1';
   const destinationName = isDashboard ? 'Dashboard' : `Workspace ${workspaceKey.replace('ws-', '')}`;
   const [, setLocation] = useLocation();
@@ -732,7 +776,7 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
           <div className="font-mono text-[10px] leading-5 text-[hsl(var(--muted-foreground))] md:text-right">
              <span className="text-[hsl(var(--foreground))]">{subdomain}.{BISBY_ROOT_DOMAIN}</span>
             <br />
-            tenant {tenantId}
+            {customerName}
           </div>
           <button
             type="button"
@@ -746,7 +790,7 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
           </button>
         </div>
       </div>
-      <div className="p-6 md:p-8">
+      <div className="p-6 md:p-8" id="workspace-page">
         {pageAccess.isLoading ? (
           <LoadingState label="workspace content" />
         ) : pageAccess.isError ? (
@@ -757,6 +801,26 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
           </div>
         ) : (
           <>
+        <nav className="mb-8 flex flex-wrap gap-2 border-b border-[hsl(var(--border))] pb-4" aria-label="Workspace page navigation">
+          {pageAccess.data?.canView ? (
+            <Link
+              href={`/${moduleLetter}/${workspaceKey}#workspace-page`}
+              className="border border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--foreground))]"
+              data-testid="link-module-page-workspace"
+            >
+              Workspace
+            </Link>
+          ) : null}
+          {overviewAccess.data?.canView ? (
+            <Link
+              href={`/${moduleLetter}/${workspaceKey}#overview-tab`}
+              className="border border-[hsl(var(--border))] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))] transition-colors hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))]"
+              data-testid="link-module-tab-overview"
+            >
+              Overview
+            </Link>
+          ) : null}
+        </nav>
         <p className="text-2xl font-semibold tracking-[-0.035em] md:text-3xl" data-testid="text-destination-under-construction">
           Module {moduleLetter.toUpperCase()} {destinationName} under construction
         </p>
@@ -767,7 +831,7 @@ function AuthorizedDestination({ moduleLetter, workspaceKey, subdomain, tenantId
             Overview is not available
           </div>
         ) : (
-          <div className="mt-8 grid gap-3 md:grid-cols-3">
+          <div className="mt-8 grid gap-3 md:grid-cols-3" id="overview-tab">
             <ProtectedWorkspaceCard moduleKey={moduleKey} workspaceKey={workspaceKey} nodeKey="destination-status" />
             <ProtectedWorkspaceCard moduleKey={moduleKey} workspaceKey={workspaceKey} nodeKey="access-boundary" />
             <ProtectedWorkspaceCard moduleKey={moduleKey} workspaceKey={workspaceKey} nodeKey="session-status" />
@@ -810,11 +874,139 @@ function ProtectedWorkspaceCard({
 }
 
 function ModuleRoute() {
+  const [, setLocation] = useLocation();
   const params = useParams<{ moduleLetter?: string }>();
   const rawLetter = params.moduleLetter ?? '';
   const letter = rawLetter.toLowerCase();
+
+  const currentUser = useGetCurrentUser({ query: { queryKey: getGetCurrentUserQueryKey(), retry: false } });
+
+  useEffect(() => {
+    if (currentUser.data && isModuleLetter(letter)) {
+      if (currentUser.data.role === 'tenant_admin' || (currentUser.data.role === 'module_admin' && currentUser.data.moduleKey === moduleKeys[letter])) {
+        setLocation(`/${letter}/admin`);
+      }
+    }
+  }, [currentUser.data?.role, currentUser.data?.moduleKey, letter, setLocation]);
+
   if (!isModuleLetter(letter)) return <InvalidRoute requested={`/${rawLetter}`} reason="Module letters run from a through h." />;
+
+  if (currentUser.isLoading) {
+     return <RouteFrame eyebrow="BisBy / resolving" title="Resolving destination"><LoadingState label="Module destination" /></RouteFrame>;
+  }
+
   return <DestinationRoute moduleLetter={letter} workspaceNumber="1" isDashboard />;
+}
+
+function TenantAdminStaffWorkspaceRoute() {
+  const params = useParams<{ workspaceKey?: string }>();
+  const workspaceKey = params.workspaceKey ?? '';
+  const currentUser = useGetCurrentUser({ query: { queryKey: getGetCurrentUserQueryKey(), retry: false } });
+  const customerName = useCustomerName() ?? 'Customer';
+  const staffAccess = useGetTenantAdminStaffWorkspaceAccess(workspaceKey, {
+    query: {
+      queryKey: getGetTenantAdminStaffWorkspaceAccessQueryKey(workspaceKey),
+      enabled: currentUser.data?.role === 'tenant_admin_staff',
+      retry: false,
+    },
+  });
+  if (currentUser.isLoading) {
+    return <RouteFrame eyebrow="BisBy / organization administration" title={`Opening ${customerName} Admin Staff Workspace`}><LoadingState label="Admin Staff Workspace" /></RouteFrame>;
+  }
+  const staffUser = currentUser.data?.role === 'tenant_admin_staff' ? currentUser.data : null;
+  const authorized = Boolean(staffUser?.workspaceKeys.includes(workspaceKey) && staffAccess.isSuccess);
+  if (!authorized) {
+    return <RouteFrame eyebrow="BisBy / organization administration" title="Destination not assigned"><AccessError status={currentUser.isError ? 401 : 403} moduleLetter="a" workspaceKey={'ws-1' as WorkspaceKey} /></RouteFrame>;
+  }
+  return (
+    <RouteFrame eyebrow="BisBy / organization administration" title={`${customerName} Admin Staff Workspace ${workspaceKey}`}>
+      <div className="mt-12 border border-[hsl(var(--secondary)/.6)] bg-[hsl(var(--card)/.8)] p-6 md:p-8">
+        <StatusPill tone="good">authorized</StatusPill>
+        <p className="mt-5 text-2xl font-semibold tracking-[-0.035em]">This {customerName} Admin Staff Workspace is under construction.</p>
+        <nav className="mt-8 flex flex-wrap gap-2 border-t border-[hsl(var(--border))] pt-5" aria-label={`${customerName} Admin Staff Workspaces`}>
+          {staffUser?.workspaceKeys.map((key) => <Link key={key} href={`/tenant-admin-staff/${key}`} className={`border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] ${key === workspaceKey ? 'border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`} data-testid={`link-tenant-admin-staff-workspace-${key}`}>{key}</Link>)}
+        </nav>
+        <Link href="/" className="mt-8 inline-flex items-center gap-2 border border-[hsl(var(--border))] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em]"><ArrowLeft className="h-3.5 w-3.5" /> Exit to Customer Entry Portal</Link>
+      </div>
+    </RouteFrame>
+  );
+}
+
+function LocalAdminHome({ moduleLetter }: { moduleLetter?: string }) {
+  const [, setLocation] = useLocation();
+  const currentUser = useGetCurrentUser({
+    query: { queryKey: getGetCurrentUserQueryKey(), retry: false },
+  });
+  const customerName = useCustomerName() ?? 'Customer';
+  const normalizedLetter = moduleLetter?.toLowerCase();
+  const moduleKey =
+    normalizedLetter && isModuleLetter(normalizedLetter)
+      ? moduleKeys[normalizedLetter]
+      : null;
+  const authorized = normalizedLetter
+    ? moduleKey !== null &&
+      (currentUser.data?.role === 'tenant_admin' ||
+        (currentUser.data?.role === 'module_admin' &&
+          currentUser.data.moduleKey === moduleKey))
+    : currentUser.data?.role === 'tenant_admin';
+  const homeTitle = normalizedLetter
+    ? `Module ${normalizedLetter.toUpperCase()} Home`
+    : `${customerName} Home`;
+  const dashboardTitle = normalizedLetter
+    ? `Module ${normalizedLetter.toUpperCase()} Dashboard`
+    : `${customerName} Dashboard`;
+  const homeHref = normalizedLetter
+    ? `/module/${normalizedLetter}/home`
+    : '/tenant/home';
+  const adminHref = normalizedLetter ? `/${normalizedLetter}/admin` : '/admin';
+
+  useEffect(() => {
+    if (currentUser.isError) setLocation('/login');
+    else if (currentUser.data?.requiresPasswordChange) setLocation('/change-password');
+  }, [currentUser.data?.requiresPasswordChange, currentUser.isError, setLocation]);
+
+  if (currentUser.isLoading) {
+    return <RouteFrame eyebrow="BisBy / admin home" title={homeTitle}><LoadingState label="Admin Home" /></RouteFrame>;
+  }
+  if (!currentUser.data || currentUser.data.requiresPasswordChange) return null;
+  if (!authorized) {
+    return (
+      <RouteFrame eyebrow="BisBy / admin home" title={homeTitle}>
+        <div className="mt-12 border border-[hsl(var(--accent)/.52)] p-6">
+          <p className="font-mono text-xs uppercase tracking-[0.15em]">Insufficient Privileges</p>
+        </div>
+      </RouteFrame>
+    );
+  }
+
+  return (
+    <div className="bisby-noise min-h-[100dvh] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] md:grid md:grid-cols-[232px_1fr]">
+      <aside className="border-b border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] px-5 py-6 md:min-h-[100dvh] md:border-b-0 md:border-r">
+        <BrandMark />
+        <h1 className="mt-10 text-2xl font-semibold tracking-[-0.035em] text-[hsl(var(--sidebar-foreground))]">{homeTitle}</h1>
+        <nav className="mt-8" aria-label={homeTitle}>
+          <Link
+            href={`${homeHref}/dashboard`}
+            className="flex border-l-2 border-[hsl(var(--sidebar-primary))] bg-[hsl(var(--sidebar-accent))] px-3 py-3 font-mono text-xs uppercase tracking-[0.14em] text-[hsl(var(--sidebar-foreground))]"
+            data-testid={normalizedLetter ? `link-module-${normalizedLetter}-dashboard` : 'link-tenant-dashboard'}
+          >
+            Dashboard
+          </Link>
+        </nav>
+        <Link href={adminHref} className="mt-10 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--sidebar-foreground)/.64)]">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {normalizedLetter
+            ? `Module ${normalizedLetter.toUpperCase()} Admin Controls`
+            : `${customerName} Admin Controls`}
+        </Link>
+      </aside>
+      <main className="bisby-grid min-h-[100dvh] px-5 py-10 md:px-12 md:py-14">
+        <h2 className="text-4xl font-semibold tracking-[-0.045em] md:text-6xl" data-testid={normalizedLetter ? `title-module-${normalizedLetter}-dashboard` : 'title-tenant-dashboard'}>
+          {dashboardTitle}
+        </h2>
+      </main>
+    </div>
+  );
 }
 
 function WorkspaceRoute() {
@@ -835,6 +1027,21 @@ function DestinationRoute({ moduleLetter, workspaceNumber, isDashboard = false }
   const access = useGetRouteAccess(moduleKey, workspaceKey, {
     query: { queryKey: getGetRouteAccessQueryKey(moduleKey, workspaceKey) },
   });
+  const currentUser = useGetCurrentUser({
+    query: {
+      queryKey: getGetCurrentUserQueryKey(),
+      retry: false,
+    },
+  });
+  const administration = useGetTenantAdmin({
+    query: {
+      queryKey: getGetTenantAdminQueryKey(),
+      enabled:
+        currentUser.data?.role === 'tenant_admin' ||
+        currentUser.data?.role === 'module_admin',
+      retry: false,
+    },
+  });
   const publicData = useGetPublicTenantWorkspaces({
     query: {
       retry: false,
@@ -846,20 +1053,137 @@ function DestinationRoute({ moduleLetter, workspaceNumber, isDashboard = false }
       workspace.scope === 'module' && workspace.moduleKey === moduleKey,
   );
   const title = isDashboard ? `Module ${moduleLetter.toUpperCase()} dashboard` : `Module ${moduleLetter.toUpperCase()} workspace ${workspaceNumber}`;
+
+  if (currentUser.data?.role === 'tenant_admin_staff') {
+    return (
+      <RouteFrame eyebrow={`BisBy / module ${moduleLetter.toUpperCase()} / denied`} title="Destination not assigned">
+        <AccessError
+          status={403}
+          moduleLetter={moduleLetter}
+          workspaceKey={workspaceKey}
+        />
+      </RouteFrame>
+    );
+  }
+
   return (
     <RouteFrame eyebrow={`BisBy / module ${moduleLetter.toUpperCase()} / ${workspaceKey}`} title={title}>
-      {access.isLoading ? <LoadingState label={workspaceKey} /> : access.isError ? <AccessError status={getErrorStatus(access.error)} moduleLetter={moduleLetter} workspaceKey={workspaceKey} /> : access.data ? <AuthorizedDestination moduleLetter={moduleLetter} workspaceKey={workspaceKey} subdomain={access.data.subdomain} tenantId={access.data.tenantId} /> : <AccessError moduleLetter={moduleLetter} workspaceKey={workspaceKey} />}
+      {!currentUser.isLoading && currentUser.data ? (
+        <ModuleNavigation
+          currentUser={currentUser.data}
+          moduleLetter={moduleLetter}
+          workspaceKey={workspaceKey}
+          managedWorkspaces={administration.data?.workspaces}
+        />
+      ) : null}
+      {access.isLoading ? <LoadingState label={workspaceKey} /> : access.isError ? <AccessError status={getErrorStatus(access.error)} moduleLetter={moduleLetter} workspaceKey={workspaceKey} /> : access.data ? <AuthorizedDestination moduleLetter={moduleLetter} workspaceKey={workspaceKey} subdomain={access.data.subdomain} customerName={access.data.customerName} /> : <AccessError moduleLetter={moduleLetter} workspaceKey={workspaceKey} />}
       <PublicWorkspaceLinks
         workspaces={modulePublicWorkspaces}
         label={`Module ${moduleLetter.toUpperCase()} public surfaces`}
       />
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[hsl(var(--border))] pt-5">
-        <Link href={tenantPlaneHref('/')} className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--foreground))]" data-testid="link-return-entry">
-          <Terminal className="h-3.5 w-3.5" /> Return to entry
-        </Link>
+      <div className="mt-8 flex flex-wrap items-center justify-end gap-4 border-t border-[hsl(var(--border))] pt-5">
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">No module functionality is enabled</span>
       </div>
     </RouteFrame>
+  );
+}
+
+function ModuleNavigation({
+  currentUser,
+  moduleLetter,
+  workspaceKey,
+  managedWorkspaces,
+}: {
+  currentUser: AuthenticatedLocalUser;
+  moduleLetter: ModuleLetter;
+  workspaceKey: WorkspaceKey;
+  managedWorkspaces?: readonly ManagedWorkspaceOption[];
+}) {
+  const customerName = useCustomerName();
+  const assignedWorkspaceKeys =
+    currentUser.role === 'tenant_admin' || currentUser.role === 'module_admin'
+      ? (managedWorkspaces ?? [])
+          .filter((workspace) => workspace.moduleKey === moduleKeys[moduleLetter])
+          .map((workspace) => workspace.workspaceKey)
+      : currentUser.workspaceKeys ?? [];
+  const visibleWorkspaces = Array.from(
+    new Set([
+      ...assignedWorkspaceKeys,
+      workspaceKey,
+    ]),
+  ).sort((left, right) => {
+    const leftNumber = Number(left.replace('ws-', ''));
+    const rightNumber = Number(right.replace('ws-', ''));
+    return leftNumber - rightNumber;
+  });
+  const isTenantAdmin = currentUser.role === 'tenant_admin';
+  const isModuleAdmin = currentUser.role === 'module_admin';
+  const isExactModuleAdmin =
+    isModuleAdmin && currentUser.moduleKey === moduleKeys[moduleLetter];
+  const returnHref = isTenantAdmin
+    ? '/admin'
+    : isModuleAdmin
+      ? `/${moduleLetter}/admin`
+      : tenantPlaneHref('/');
+  const returnLabel = isTenantAdmin
+    ? `Return to ${customerName ?? 'Tenant'} Admin Controls`
+    : isModuleAdmin
+      ? `Module ${moduleLetter.toUpperCase()} Admin Controls`
+      : 'Exit to Customer Entry Portal';
+
+  return (
+    <div className="mt-10 border border-[hsl(var(--border))] bg-[hsl(var(--card)/.62)]" data-testid="module-navigation">
+      <div className="flex flex-col gap-5 border-b border-[hsl(var(--border))] p-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">
+            Module {moduleLetter.toUpperCase()} navigation
+          </p>
+          <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
+            Move between your available Module {moduleLetter.toUpperCase()} destinations.
+          </p>
+        </div>
+        <Link
+          href={returnHref}
+          className="inline-flex items-center gap-2 border border-[hsl(var(--primary))] bg-[hsl(var(--primary))] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-85"
+          data-testid={isTenantAdmin ? 'link-return-administration' : isModuleAdmin ? 'link-module-administration' : 'link-exit-tenant-entry'}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {returnLabel}
+        </Link>
+      </div>
+      <div className="p-5">
+        <nav aria-label={`Module ${moduleLetter.toUpperCase()} workspaces`}>
+          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+            Workspaces
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(isTenantAdmin || isExactModuleAdmin) && (
+              <Link
+                href={`/${moduleLetter}/admin`}
+                className="group flex items-center justify-between border px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/.08)] hover:text-[hsl(var(--foreground))]"
+                data-testid={`link-nav-admin`}
+              >
+                Module {moduleLetter.toUpperCase()} Admin Controls
+              </Link>
+            )}
+            {visibleWorkspaces.map((key) => (
+              <Link
+                key={key}
+                href={`/${moduleLetter}/${key}`}
+                className={`border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                  key === workspaceKey
+                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.08)] text-[hsl(var(--foreground))]'
+                    : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))]'
+                }`}
+                data-testid={`link-workspace-navigation-${key}`}
+              >
+                {key === 'ws-1' ? 'Dashboard' : `Workspace ${key.replace('ws-', '')}`}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </div>
+    </div>
   );
 }
 
@@ -941,18 +1265,61 @@ function Router() {
     // survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route
+          path="/"
+          component={
+            import.meta.env.DEV && developmentPlane === 'design'
+              ? DevelopmentDesignHome
+              : Home
+          }
+        />
         <Route path="/login" component={Login} />
         <Route path="/change-password" component={ChangePassword} />
-        <Route path="/admin" component={AdminControlPlane} />
-        <Route path="/public/platform/:workspaceKey">
-          {params => <PublicDestination scope="platform" workspaceKey={params.workspaceKey!} />}
+        <Route path="/platform-staff/login" component={PlatformStaffLogin} />
+        <Route path="/platform-staff/change-password" component={PlatformStaffChangePassword} />
+        <Route path="/platform-staff/home">
+          <PlatformStaffHome />
         </Route>
+        <Route path="/platform-staff/workspaces/:workspaceKey">
+          {(params) => <PlatformStaffHome workspaceKey={params.workspaceKey} />}
+        </Route>
+        <Route path="/platform/home/dashboard" component={OwnerHome} />
+        <Route path="/platform/home" component={OwnerHome} />
+        <Route path="/tenant/home/dashboard">
+          <LocalAdminHome />
+        </Route>
+        <Route path="/tenant/home">
+          <LocalAdminHome />
+        </Route>
+        <Route path="/module/:moduleLetter/home/dashboard">
+          {(params) => <LocalAdminHome moduleLetter={params.moduleLetter} />}
+        </Route>
+        <Route path="/module/:moduleLetter/home">
+          {(params) => <LocalAdminHome moduleLetter={params.moduleLetter} />}
+        </Route>
+        <Route path="/admin">
+          <AdminControlPlane />
+        </Route>
+        <Route path="/tenant-admin-staff/:workspaceKey" component={TenantAdminStaffWorkspaceRoute} />
+        {!(import.meta.env.DEV && developmentPlane === 'design') ? (
+          <Route path="/public/platform/:workspaceKey">
+            {params => <PublicDestination scope="platform" workspaceKey={params.workspaceKey!} />}
+          </Route>
+        ) : null}
         <Route path="/public/tenant/:workspaceKey">
           {params => <PublicDestination scope="tenant" workspaceKey={params.workspaceKey!} />}
         </Route>
         <Route path="/public/module/:moduleLetter/:workspaceKey">
           {params => <PublicDestination scope="module" moduleLetter={params.moduleLetter!} workspaceKey={params.workspaceKey!} />}
+        </Route>
+        <Route path="/:moduleLetter/admin">
+          {(params) =>
+            isModuleLetter(params.moduleLetter ?? '') ? (
+              <AdminControlPlane moduleLetter={params.moduleLetter!.toLowerCase()} />
+            ) : (
+              <InvalidRoute requested={`/${params.moduleLetter}/admin`} reason="Module letters run from a through h." />
+            )
+          }
         </Route>
         <Route path="/:moduleLetter/:workspaceKey" component={WorkspaceRoute} />
         <Route path="/:moduleLetter" component={ModuleRoute} />
@@ -990,6 +1357,7 @@ export function PublicDestination({
   workspaceKey: string
 }) {
   const isPlatform = scope === 'platform';
+  const customerName = useCustomerName();
 
   const [platformData, setPlatformData] = useState<{workspaces: any[]} | null>(null);
   const [loading, setLoading] = useState(isPlatform);
@@ -1065,8 +1433,6 @@ export function PublicDestination({
     );
   }
 
-  const tenantName = tenantNameFromHostname(window.location.hostname);
-
   return (
     <RouteFrame
       eyebrow={`BisBy / ${workspace.workspaceType.replace('_', ' ')}`}
@@ -1097,7 +1463,7 @@ export function PublicDestination({
 
           <div className="mt-8 border-t border-[hsl(var(--border))] pt-6 text-sm text-[hsl(var(--muted-foreground))] max-w-2xl">
             <p>
-              This is a verified public surface for {isPlatform ? 'the platform' : tenantName || 'the tenant'}.
+              This is a verified public surface for {isPlatform ? 'the platform' : customerName || 'this customer'}.
               {workspace.contactEnabled
                 ? " The contact intake module is currently active."
                 : " This workspace provides public information only."}

@@ -8,7 +8,7 @@
 
 export interface ManagedTenantAccountPasswordResetRequest {
   /**
-     * @minLength 12
+     * @minLength 8
      * @maxLength 255
      */
   temporaryPassword: string;

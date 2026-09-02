@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuthenticatedLocalUserRole } from './authenticatedLocalUserRole';
+import type { AuthenticatedWorkspaceKey } from './authenticatedWorkspaceKey';
 import type { ModuleKey } from './moduleKey';
-import type { WorkspaceKey } from './workspaceKey';
 
 export interface AuthenticatedLocalUser {
   accountId: string;
@@ -15,6 +15,6 @@ export interface AuthenticatedLocalUser {
   username: string;
   role: AuthenticatedLocalUserRole;
   moduleKey: ModuleKey | null;
-  workspaceKeys: WorkspaceKey[];
+  workspaceKeys: AuthenticatedWorkspaceKey[];
   requiresPasswordChange: boolean;
 }

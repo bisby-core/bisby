@@ -8,13 +8,14 @@
 import type { ManagedTenantAccount } from './managedTenantAccount';
 import type { ManagedWorkspaceOption } from './managedWorkspaceOption';
 import type { ModuleKey } from './moduleKey';
-import type { TenantAdministrationCurrentUser } from './tenantAdministrationCurrentUser';
+import type { TenantAdminCurrentUser } from './tenantAdminCurrentUser';
 
-export interface TenantAdministrationSnapshot {
+export interface TenantAdminSnapshot {
   tenantId: string;
   subdomain: string;
+  customerName: string;
   enabledModules: ModuleKey[];
-  currentUser: TenantAdministrationCurrentUser;
+  currentUser: TenantAdminCurrentUser;
   workspaces: ManagedWorkspaceOption[];
   users: ManagedTenantAccount[];
 }

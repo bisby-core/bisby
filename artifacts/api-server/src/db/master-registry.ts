@@ -8,6 +8,7 @@ import type { TenantRegistry, TenantRegistryRecord } from "../tenancy/contracts"
 interface TenantRow {
   id: string;
   subdomain: string;
+  display_name: string;
   database_name: string;
   is_active: boolean;
 }
@@ -20,6 +21,22 @@ function isModuleSchemaName(value: string): value is ModuleSchemaName {
   return (MODULE_SCHEMA_NAMES as readonly string[]).includes(value);
 }
 
+export function mapTenantRegistryRecord(
+  tenant: TenantRow,
+  modules: readonly ModuleRow[],
+): TenantRegistryRecord {
+  return {
+    tenantId: tenant.id,
+    subdomain: tenant.subdomain,
+    customerName: tenant.display_name,
+    databaseName: tenant.database_name,
+    active: tenant.is_active,
+    enabledModules: modules
+      .map((module) => module.schema_name)
+      .filter(isModuleSchemaName),
+  };
+}
+
 export class KnexTenantRegistry implements TenantRegistry {
   public constructor(private readonly database: Knex) {}
 
@@ -27,7 +44,7 @@ export class KnexTenantRegistry implements TenantRegistry {
     subdomain: string,
   ): Promise<TenantRegistryRecord | null> {
     const tenant = await this.database<TenantRow>("tenants")
-      .select("id", "subdomain", "database_name", "is_active")
+      .select("id", "subdomain", "display_name", "database_name", "is_active")
       .where({ subdomain, is_active: true })
       .first();
 
@@ -48,14 +65,6 @@ export class KnexTenantRegistry implements TenantRegistry {
       .andWhere("modules.is_available", true)
       .select("modules.schema_name");
 
-    return {
-      tenantId: tenant.id,
-      subdomain: tenant.subdomain,
-      databaseName: tenant.database_name,
-      active: tenant.is_active,
-      enabledModules: modules
-        .map((module) => module.schema_name)
-        .filter(isModuleSchemaName),
-    };
+    return mapTenantRegistryRecord(tenant, modules);
   }
 }

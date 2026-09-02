@@ -4,7 +4,7 @@ import { canAccessWorkspace, toLocalAccountRole } from "./roles";
 
 const enabledModules = ["module_a", "module_b"] as const;
 
-test("tenant administrators can access every workspace in enabled modules only", () => {
+test("tenant admin can access every workspace in enabled modules only", () => {
   assert.equal(
     canAccessWorkspace(
       "tenant_admin",
@@ -29,7 +29,7 @@ test("tenant administrators can access every workspace in enabled modules only",
   );
 });
 
-test("module administrators are confined to their assigned enabled module", () => {
+test("module admin is confined to its assigned enabled module", () => {
   assert.equal(
     canAccessWorkspace(
       "module_admin",
@@ -132,4 +132,19 @@ test("legacy clients keep explicit workspace access and legacy staff map safely"
   );
   assert.equal(toLocalAccountRole("staff"), "tenant_admin");
   assert.equal(toLocalAccountRole("unknown"), null);
+});
+
+test("tenant admin staff never receive module workspace access", () => {
+  assert.equal(
+    canAccessWorkspace(
+      "tenant_admin_staff",
+      null,
+      [{ moduleKey: "module_a", workspaceKey: "ws-1" }],
+      enabledModules,
+      "module_a",
+      "ws-1",
+    ),
+    false,
+  );
+  assert.equal(toLocalAccountRole("tenant_admin_staff"), "tenant_admin_staff");
 });

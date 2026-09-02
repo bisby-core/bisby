@@ -26,6 +26,7 @@ export const AuthenticatedLocalUserRole = {
   module_admin: 'module_admin',
   module_staff: 'module_staff',
   client: 'client',
+  tenant_admin_staff: 'tenant_admin_staff',
 } as const;
 
 export type ModuleKey = typeof ModuleKey[keyof typeof ModuleKey];
@@ -47,13 +48,20 @@ export const ModuleKey = {
  */
 export type WorkspaceKey = string;
 
+/**
+ * @pattern ^tasw-[1-9][0-9]*$
+ */
+export type TenantAdminStaffWorkspaceKey = string;
+
+export type AuthenticatedWorkspaceKey = WorkspaceKey | TenantAdminStaffWorkspaceKey;
+
 export interface AuthenticatedLocalUser {
   accountId: string;
   tenantId: string;
   username: string;
   role: AuthenticatedLocalUserRole;
   moduleKey: ModuleKey | null;
-  workspaceKeys: WorkspaceKey[];
+  workspaceKeys: AuthenticatedWorkspaceKey[];
   requiresPasswordChange: boolean;
 }
 
@@ -64,7 +72,7 @@ export interface ChangePasswordRequest {
      */
   currentPassword: string;
   /**
-     * @minLength 12
+     * @minLength 8
      * @maxLength 255
      */
   newPassword: string;
@@ -86,13 +94,170 @@ export interface AuthLogoutResponse {
   authenticated: boolean;
 }
 
+export interface CustomerContext {
+  /** @minLength 1 */
+  customerName: string;
+  subdomain: string;
+}
+
 export interface HealthStatus {
   status: string;
+}
+
+export interface TenantAdminStaffCreateRequest {
+  username: string;
+  displayName: string;
+  /** @minLength 8 */
+  temporaryPassword: string;
+  /** @minItems 1 */
+  workspaceKeys: TenantAdminStaffWorkspaceKey[];
+}
+
+export type WorkspaceType = typeof WorkspaceType[keyof typeof WorkspaceType];
+
+
+export const WorkspaceType = {
+  normal: 'normal',
+  public_information: 'public_information',
+  contact_us: 'contact_us',
+} as const;
+
+export interface WorkspaceMetadataRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  displayName: string;
+  isActive: boolean;
+  workspaceType: WorkspaceType;
+  publicVisible: boolean;
+  contactEnabled: boolean;
+}
+
+export type TenantAdminStaffWorkspaceCreateRequest = WorkspaceMetadataRequest;
+
+export interface TenantAdminStaffStatusRequest {
+  active: boolean;
+}
+
+export interface TenantAdminStaffAssignmentsRequest {
+  /** @minItems 1 */
+  workspaceKeys: TenantAdminStaffWorkspaceKey[];
+}
+
+export interface TenantAdminStaffPasswordResetRequest {
+  /** @minLength 8 */
+  temporaryPassword: string;
+}
+
+export type TenantAdminStaffWorkspaceUpdateRequest = WorkspaceMetadataRequest;
+
+export type WorkspaceContentNodeType = typeof WorkspaceContentNodeType[keyof typeof WorkspaceContentNodeType];
+
+
+export const WorkspaceContentNodeType = {
+  page: 'page',
+  tab: 'tab',
+  card: 'card',
+} as const;
+
+export type WorkspaceAccessLevel = typeof WorkspaceAccessLevel[keyof typeof WorkspaceAccessLevel];
+
+
+export const WorkspaceAccessLevel = {
+  active: 'active',
+  sign_only: 'sign_only',
+  view_only: 'view_only',
+  not_available: 'not_available',
+} as const;
+
+export interface WorkspaceContentNode {
+  id: string;
+  parentId: string | null;
+  /** @pattern ^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$ */
+  semanticId: string;
+  parentSemanticId: string | null;
+  type: WorkspaceContentNodeType;
+  key: string;
+  displayName: string;
+  sortOrder: number;
+  accessLevel: WorkspaceAccessLevel;
+}
+
+export interface TenantAdminStaffWorkspace {
+  id: string;
+  workspaceKey: TenantAdminStaffWorkspaceKey;
+  displayName: string;
+  workspaceType: WorkspaceType;
+  isActive: boolean;
+  publicVisible: boolean;
+  contactEnabled: boolean;
+  sortOrder: number;
+  createdAt: string;
+  contentNodes: WorkspaceContentNode[];
+}
+
+export interface TenantAdminStaffWorkspaceList {
+  workspaces: TenantAdminStaffWorkspace[];
+}
+
+export interface TenantAdminStaffAccount {
+  id: string;
+  username: string;
+  displayName: string;
+  isActive: boolean;
+  requiresPasswordChange: boolean;
+  createdAt: string;
+  workspaceKeys: TenantAdminStaffWorkspaceKey[];
+}
+
+export interface StaffAccountDeletionResponse {
+  accountId: string;
+  deleted: true;
+}
+
+export interface TenantAdminStaffAdministrationSnapshot {
+  workspaces: TenantAdminStaffWorkspace[];
+  staff: TenantAdminStaffAccount[];
+}
+
+export interface TenantAdminStaffAssignmentsResponse {
+  accountId: string;
+  workspaceKeys: TenantAdminStaffWorkspaceKey[];
+}
+
+export interface TenantAdminStaffStatusResponse {
+  accountId: string;
+  active: boolean;
+}
+
+export type TenantAdminStaffPasswordResetResponseStatus = typeof TenantAdminStaffPasswordResetResponseStatus[keyof typeof TenantAdminStaffPasswordResetResponseStatus];
+
+
+export const TenantAdminStaffPasswordResetResponseStatus = {
+  password_reset: 'password_reset',
+} as const;
+
+export interface TenantAdminStaffPasswordResetResponse {
+  status: TenantAdminStaffPasswordResetResponseStatus;
+  accountId: string;
+}
+
+export interface TenantAdminStaffWorkspaceRemovalResponse {
+  workspaceKey: TenantAdminStaffWorkspaceKey;
+  removed: true;
+}
+
+export interface TenantAdminStaffWorkspaceAccess {
+  allowed: true;
+  workspaceKey: TenantAdminStaffWorkspaceKey;
+  workspaceKeys: TenantAdminStaffWorkspaceKey[];
 }
 
 export interface RouteAccess {
   allowed: boolean;
   tenantId: string;
+  customerName: string;
   subdomain: string;
   moduleKey: ModuleKey;
   workspaceKey: WorkspaceKey;
@@ -119,18 +284,18 @@ export interface ManagedTenantAccount {
   createdAt: string;
 }
 
-export type TenantAdministrationCurrentUserRole = typeof TenantAdministrationCurrentUserRole[keyof typeof TenantAdministrationCurrentUserRole];
+export type TenantAdminCurrentUserRole = typeof TenantAdminCurrentUserRole[keyof typeof TenantAdminCurrentUserRole];
 
 
-export const TenantAdministrationCurrentUserRole = {
+export const TenantAdminCurrentUserRole = {
   tenant_admin: 'tenant_admin',
   module_admin: 'module_admin',
 } as const;
 
-export interface TenantAdministrationCurrentUser {
+export interface TenantAdminCurrentUser {
   accountId: string;
   username: string;
-  role: TenantAdministrationCurrentUserRole;
+  role: TenantAdminCurrentUserRole;
   moduleKey: ModuleKey | null;
 }
 
@@ -140,11 +305,12 @@ export interface ManagedWorkspaceOption {
   displayName: string;
 }
 
-export interface TenantAdministrationSnapshot {
+export interface TenantAdminSnapshot {
   tenantId: string;
   subdomain: string;
+  customerName: string;
   enabledModules: ModuleKey[];
-  currentUser: TenantAdministrationCurrentUser;
+  currentUser: TenantAdminCurrentUser;
   workspaces: ManagedWorkspaceOption[];
   users: ManagedTenantAccount[];
 }
@@ -173,7 +339,7 @@ export interface ManagedTenantAccountCreateRequest {
   moduleKey: ModuleKey;
   workspaceKeys: WorkspaceKey[];
   /**
-     * @minLength 12
+     * @minLength 8
      * @maxLength 255
      */
   temporaryPassword: string;
@@ -193,25 +359,6 @@ export interface ManagedTenantAccountAccessRequest {
   workspaceKeys: WorkspaceKey[];
 }
 
-export type WorkspaceAccessLevel = typeof WorkspaceAccessLevel[keyof typeof WorkspaceAccessLevel];
-
-
-export const WorkspaceAccessLevel = {
-  active: 'active',
-  sign_only: 'sign_only',
-  view_only: 'view_only',
-  not_available: 'not_available',
-} as const;
-
-export type WorkspaceContentNodeType = typeof WorkspaceContentNodeType[keyof typeof WorkspaceContentNodeType];
-
-
-export const WorkspaceContentNodeType = {
-  page: 'page',
-  tab: 'tab',
-  card: 'card',
-} as const;
-
 export interface ContentAccess {
   allowed: boolean;
   moduleKey: ModuleKey;
@@ -224,24 +371,35 @@ export interface ContentAccess {
   canEdit: boolean;
 }
 
-export interface WorkspaceContentNode {
-  id: string;
-  parentId: string | null;
+/**
+ * @pattern ^[a-z0-9](?:[a-z0-9-]{0,126})$
+ */
+export type WorkspaceContentNodeKey = string;
+
+export interface WorkspaceHierarchyNodeInput {
   type: WorkspaceContentNodeType;
-  key: string;
+  key: WorkspaceContentNodeKey;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   displayName: string;
   sortOrder: number;
-  accessLevel: WorkspaceAccessLevel;
+  parentType: WorkspaceContentNodeType | null;
+  parentKey: WorkspaceContentNodeKey | null;
 }
 
-export type WorkspaceType = typeof WorkspaceType[keyof typeof WorkspaceType];
-
-
-export const WorkspaceType = {
-  normal: 'normal',
-  public_information: 'public_information',
-  contact_us: 'contact_us',
-} as const;
+export interface WorkspaceHierarchyNodeUpdate {
+  key: WorkspaceContentNodeKey;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  displayName: string;
+  sortOrder: number;
+  parentType: WorkspaceContentNodeType | null;
+  parentKey: WorkspaceContentNodeKey | null;
+}
 
 export interface ManagedModuleWorkspace {
   id: string;
@@ -306,7 +464,7 @@ export interface ManagedTenantAccountStatusResponse {
 
 export interface ManagedTenantAccountPasswordResetRequest {
   /**
-     * @minLength 12
+     * @minLength 8
      * @maxLength 255
      */
   temporaryPassword: string;
@@ -328,18 +486,6 @@ export interface ManagedTenantAccountPasswordResetResponse {
  * @pattern ^tws-[1-9][0-9]*$
  */
 export type TenantWorkspaceKey = string;
-
-export interface WorkspaceMetadataRequest {
-  /**
-     * @minLength 1
-     * @maxLength 255
-     */
-  displayName: string;
-  isActive: boolean;
-  workspaceType: WorkspaceType;
-  publicVisible: boolean;
-  contactEnabled: boolean;
-}
 
 export interface WorkspaceAccessRequest {
   /**
@@ -396,7 +542,119 @@ export interface PublicWorkspaceList {
   workspaces: PublicWorkspace[];
 }
 
+/**
+ * @pattern ^pws-[1-9][0-9]*$
+ */
+export type PlatformWorkspaceKey = string;
+
+export interface PlatformStaffSession {
+  authenticated: true;
+  accountId: string;
+  username: string;
+  displayName: string;
+  requiresPasswordChange: boolean;
+}
+
+export const PlatformStaffLogoutResponseValue = {
+  authenticated: false,
+} as const;
+export type PlatformStaffLogoutResponse = typeof PlatformStaffLogoutResponseValue;
+
+export const PlatformStaffPasswordChangeResponseValue = {
+  status: 'password_changed',
+  requiresPasswordChange: false,
+} as const;
+export type PlatformStaffPasswordChangeResponse = typeof PlatformStaffPasswordChangeResponseValue;
+
+export interface PlatformStaffAccount {
+  id: string;
+  username: string;
+  displayName: string;
+  isActive: boolean;
+  requiresPasswordChange: boolean;
+  createdAt: string;
+  workspaceKeys: PlatformWorkspaceKey[];
+}
+
+export interface PlatformStaffWorkspace {
+  workspaceKey: PlatformWorkspaceKey;
+  displayName: string;
+  isActive: boolean;
+}
+
+export interface PlatformStaffSnapshot {
+  staff: PlatformStaffAccount[];
+  workspaces: PlatformStaffWorkspace[];
+}
+
+export interface PlatformStaffCreateRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  username: string;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  displayName: string;
+  /**
+     * @minLength 8
+     * @maxLength 255
+     */
+  temporaryPassword: string;
+  /** @minItems 1 */
+  workspaceKeys: PlatformWorkspaceKey[];
+}
+
+export interface PlatformStaffWorkspacesRequest {
+  /** @minItems 1 */
+  workspaceKeys: PlatformWorkspaceKey[];
+}
+
+export interface ActiveStatusRequest {
+  active: boolean;
+}
+
+export interface PlatformStaffPasswordResetRequest {
+  /**
+     * @minLength 8
+     * @maxLength 255
+     */
+  temporaryPassword: string;
+}
+
+export interface PlatformStaffCreateResponse {
+  status: 'platform_staff_created';
+  platformStaff: PlatformStaffAccount;
+}
+
+export interface PlatformStaffWorkspacesResponse {
+  status: 'platform_staff_workspaces_updated';
+  platformStaff: PlatformStaffAccount;
+}
+
+export interface PlatformStaffStatusResponse {
+  status: 'platform_staff_status_updated';
+  platformStaff: PlatformStaffAccount;
+}
+
+export interface PlatformStaffDeletionResponse {
+  status: 'platform_staff_deleted';
+  platformStaffId: string;
+  deleted: true;
+}
+
+export interface PlatformStaffPasswordResetResponse {
+  status: 'platform_staff_temporary_password_reset';
+  platformStaffId: string;
+  requiresPasswordChange: true;
+}
+
 export interface ApiError {
   error: string;
 }
 
+export type GetModuleWorkspaceControlParams = {
+moduleKey?: ModuleKey;
+};

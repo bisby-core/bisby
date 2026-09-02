@@ -10,7 +10,7 @@ interface TenantReference {
   readonly database_name: string;
 }
 
-interface AdministratorRow {
+interface TenantAdminRow {
   readonly id: string;
   readonly username: string;
   readonly display_name: string;
@@ -19,13 +19,13 @@ interface AdministratorRow {
   readonly must_change_password: boolean;
 }
 
-interface AdministratorPasswordRow {
+interface TenantAdminPasswordRow {
   readonly id: string;
   readonly password_hash: string;
   readonly must_change_password: boolean;
 }
 
-export interface TenantAdministrator {
+export interface TenantAdmin {
   readonly id: string;
   readonly username: string;
   readonly displayName: string;
@@ -34,13 +34,13 @@ export interface TenantAdministrator {
   readonly requiresPasswordChange: boolean;
 }
 
-export interface TenantAdministratorsSnapshot {
+export interface TenantAdminsSnapshot {
   readonly tenantId: string;
   readonly subdomain: string;
-  readonly administrators: readonly TenantAdministrator[];
+  readonly tenantAdmins: readonly TenantAdmin[];
 }
 
-export interface TenantAdministratorCredentialsReset {
+export interface TenantAdminCredentialsReset {
   readonly status: "credentials_reset";
   readonly tenantId: string;
   readonly subdomain: string;
@@ -48,36 +48,36 @@ export interface TenantAdministratorCredentialsReset {
   readonly previousUsername: string;
 }
 
-export interface TenantAdministratorCreateInput {
+export interface TenantAdminCreateInput {
   readonly username: string;
   readonly displayName: string;
   readonly temporaryPassword: string;
 }
 
-export interface TenantAdministratorCreateResult {
-  readonly status: "administrator_created";
+export interface TenantAdminCreateResult {
+  readonly status: "tenant_admin_created";
   readonly tenantId: string;
   readonly subdomain: string;
-  readonly administrator: TenantAdministrator;
+  readonly tenantAdmin: TenantAdmin;
 }
 
-export class TenantAdministratorError extends Error {
+export class TenantAdminError extends Error {
   public constructor(
     public readonly code:
       | "tenant_not_found"
       | "tenant_database_unavailable"
-      | "administrator_not_found"
-      | "administrator_conflict"
-      | "administrator_create_audit_failed"
-      | "administrator_create_reconciliation_required"
-      | "administrator_deactivate_audit_failed"
-      | "administrator_deactivate_reconciliation_required"
+      | "tenant_admin_not_found"
+      | "tenant_admin_conflict"
+      | "tenant_admin_create_audit_failed"
+      | "tenant_admin_create_reconciliation_required"
+      | "tenant_admin_deactivate_audit_failed"
+      | "tenant_admin_deactivate_reconciliation_required"
       | "credentials_reset_audit_failed"
       | "credentials_reset_reconciliation_required",
     message: string,
   ) {
     super(message);
-    this.name = "TenantAdministratorError";
+    this.name = "TenantAdminError";
   }
 }
 
@@ -91,7 +91,7 @@ async function findTenantReference(
     .first<TenantReference>();
 
   if (!tenant) {
-    throw new TenantAdministratorError(
+    throw new TenantAdminError(
       "tenant_not_found",
       "That tenant is not registered.",
     );
@@ -114,11 +114,11 @@ async function withTenantDatabase<T>(
     await tenantDatabase.raw("select 1");
     return await callback(tenantDatabase, tenant.subdomain);
   } catch (error) {
-    if (error instanceof TenantAdministratorError) {
+    if (error instanceof TenantAdminError) {
       throw error;
     }
 
-    throw new TenantAdministratorError(
+    throw new TenantAdminError(
       "tenant_database_unavailable",
       "The tenant database is unavailable.",
     );
@@ -127,12 +127,12 @@ async function withTenantDatabase<T>(
   }
 }
 
-export async function listTenantAdministrators(
+export async function listTenantAdmins(
   masterDatabase: Knex,
   tenantId: string,
-): Promise<TenantAdministratorsSnapshot> {
+): Promise<TenantAdminsSnapshot> {
   return withTenantDatabase(masterDatabase, tenantId, async (tenantDatabase, subdomain) => {
-    const administrators = await tenantDatabase<AdministratorRow>(
+    const tenantAdmins = await tenantDatabase<TenantAdminRow>(
       "core_admin.client_accounts",
     )
       .select("id", "username", "display_name", "is_active", "created_at")
@@ -143,26 +143,26 @@ export async function listTenantAdministrators(
     return {
       tenantId,
       subdomain,
-      administrators: administrators.map((administrator) => ({
-        id: administrator.id,
-        username: administrator.username,
-        displayName: administrator.display_name,
-        isActive: administrator.is_active,
-        createdAt: new Date(administrator.created_at).toISOString(),
-        requiresPasswordChange: administrator.must_change_password,
+      tenantAdmins: tenantAdmins.map((tenantAdmin) => ({
+        id: tenantAdmin.id,
+        username: tenantAdmin.username,
+        displayName: tenantAdmin.display_name,
+        isActive: tenantAdmin.is_active,
+        createdAt: new Date(tenantAdmin.created_at).toISOString(),
+        requiresPasswordChange: tenantAdmin.must_change_password,
       })),
     };
   });
 }
 
-export async function resetTenantAdministratorCredentials(
+export async function resetTenantAdminCredentials(
   masterDatabase: Knex,
   actorUsername: string,
   tenantId: string,
   currentUsername: string,
   newUsername: string,
   temporaryPassword: string,
-): Promise<TenantAdministratorCredentialsReset> {
+): Promise<TenantAdminCredentialsReset> {
   const tenant = await findTenantReference(masterDatabase, tenantId);
   const passwordHash = await hashPassword(temporaryPassword);
   const tenantDatabase = createPostgresClient({
@@ -171,10 +171,10 @@ export async function resetTenantAdministratorCredentials(
 
   try {
     await tenantDatabase.raw("select 1");
-    let administrator: AdministratorPasswordRow;
+    let tenantAdmin: TenantAdminPasswordRow;
     try {
-      administrator = await tenantDatabase.transaction(async (transaction) => {
-        const account = await transaction<AdministratorPasswordRow>(
+      tenantAdmin = await tenantDatabase.transaction(async (transaction) => {
+        const account = await transaction<TenantAdminPasswordRow>(
           "core_admin.client_accounts",
         )
           .select("id", "password_hash", "must_change_password")
@@ -185,9 +185,9 @@ export async function resetTenantAdministratorCredentials(
           .first();
 
         if (!account) {
-          throw new TenantAdministratorError(
-            "administrator_not_found",
-            "That active tenant administrator was not found.",
+          throw new TenantAdminError(
+            "tenant_admin_not_found",
+            "That active tenant admin was not found.",
           );
         }
 
@@ -202,9 +202,9 @@ export async function resetTenantAdministratorCredentials(
             updated_at: transaction.fn.now(),
           });
         if (updated !== 1) {
-          throw new TenantAdministratorError(
-            "administrator_not_found",
-            "That active tenant administrator was not found.",
+          throw new TenantAdminError(
+            "tenant_admin_not_found",
+            "That active tenant admin was not found.",
           );
         }
 
@@ -212,21 +212,21 @@ export async function resetTenantAdministratorCredentials(
       });
     } catch (error) {
       if (
-        error instanceof TenantAdministratorError ||
+        error instanceof TenantAdminError ||
         (error &&
           typeof error === "object" &&
           "code" in error &&
           error.code === "23505")
       ) {
         if (
-          error instanceof TenantAdministratorError &&
-          error.code === "administrator_not_found"
+          error instanceof TenantAdminError &&
+          error.code === "tenant_admin_not_found"
         ) {
           throw error;
         }
-        throw new TenantAdministratorError(
-          "administrator_conflict",
-          "That administrator username is already in use.",
+        throw new TenantAdminError(
+          "tenant_admin_conflict",
+          "That tenant admin username is already in use.",
         );
       }
       throw error;
@@ -236,7 +236,7 @@ export async function resetTenantAdministratorCredentials(
     try {
       await recordPlatformAudit(masterDatabase, {
         eventId: auditId,
-        eventType: "owner.tenant_administrator.credentials_reset",
+        eventType: "owner.tenant_admin.credentials_reset",
         actorUsername,
         subdomain: tenant.subdomain,
         details: { previousUsername: currentUsername, username: newUsername },
@@ -257,38 +257,38 @@ export async function resetTenantAdministratorCredentials(
       }
 
       if (auditState === "unknown") {
-        throw new TenantAdministratorError(
+        throw new TenantAdminError(
           "credentials_reset_reconciliation_required",
-          "The administrator credential reset audit state could not be reconciled safely.",
+          "The tenant admin credential reset audit state could not be reconciled safely.",
         );
       }
 
       if (auditState === "absent") {
         try {
           const restored = await tenantDatabase("core_admin.client_accounts")
-            .where("id", administrator.id)
+            .where("id", tenantAdmin.id)
             .andWhere("username", newUsername)
             .andWhere("password_hash", passwordHash)
             .andWhere("must_change_password", true)
             .update({
               username: currentUsername,
-              password_hash: administrator.password_hash,
-              must_change_password: administrator.must_change_password,
+              password_hash: tenantAdmin.password_hash,
+              must_change_password: tenantAdmin.must_change_password,
               updated_at: tenantDatabase.fn.now(),
             });
           if (restored !== 1) {
             throw new Error("Password reset compensation did not update one row.");
           }
         } catch {
-          throw new TenantAdministratorError(
+          throw new TenantAdminError(
             "credentials_reset_reconciliation_required",
-            "The administrator credential reset could not be reconciled safely.",
+            "The tenant admin credential reset could not be reconciled safely.",
           );
         }
 
-        throw new TenantAdministratorError(
+        throw new TenantAdminError(
           "credentials_reset_audit_failed",
-          "The administrator credential reset could not be recorded and was rolled back.",
+          "The tenant admin credential reset could not be recorded and was rolled back.",
         );
       }
     }
@@ -301,11 +301,11 @@ export async function resetTenantAdministratorCredentials(
       previousUsername: currentUsername,
     };
   } catch (error) {
-    if (error instanceof TenantAdministratorError) {
+    if (error instanceof TenantAdminError) {
       throw error;
     }
 
-    throw new TenantAdministratorError(
+    throw new TenantAdminError(
       "tenant_database_unavailable",
       "The tenant database is unavailable.",
     );
@@ -332,12 +332,12 @@ async function resolveAuditState(
   }
 }
 
-export async function createTenantAdministrator(
+export async function createTenantAdmin(
   masterDatabase: Knex,
   actorUsername: string,
   tenantId: string,
-  input: TenantAdministratorCreateInput,
-): Promise<TenantAdministratorCreateResult> {
+  input: TenantAdminCreateInput,
+): Promise<TenantAdminCreateResult> {
   const tenant = await findTenantReference(masterDatabase, tenantId);
   const passwordHash = await hashPassword(input.temporaryPassword);
   const tenantDatabase = createPostgresClient({
@@ -346,9 +346,9 @@ export async function createTenantAdministrator(
 
   try {
     await tenantDatabase.raw("select 1");
-    let administrator: TenantAdministrator;
+    let tenantAdmin: TenantAdmin;
     try {
-      administrator = await tenantDatabase.transaction(async (transaction) => {
+      tenantAdmin = await tenantDatabase.transaction(async (transaction) => {
         const [account] = await transaction("core_admin.client_accounts")
           .insert({
             username: input.username,
@@ -368,9 +368,9 @@ export async function createTenantAdministrator(
           ]);
 
         if (!account) {
-          throw new TenantAdministratorError(
-            "administrator_conflict",
-            "The administrator could not be created.",
+          throw new TenantAdminError(
+            "tenant_admin_conflict",
+            "The tenant admin could not be created.",
           );
         }
 
@@ -385,15 +385,15 @@ export async function createTenantAdministrator(
       });
     } catch (error) {
       if (
-        error instanceof TenantAdministratorError ||
+        error instanceof TenantAdminError ||
         (error &&
           typeof error === "object" &&
           "code" in error &&
           error.code === "23505")
       ) {
-        throw new TenantAdministratorError(
-          "administrator_conflict",
-          "That administrator username is already in use.",
+        throw new TenantAdminError(
+          "tenant_admin_conflict",
+          "That tenant admin username is already in use.",
         );
       }
       throw error;
@@ -403,46 +403,46 @@ export async function createTenantAdministrator(
     try {
       await recordPlatformAudit(masterDatabase, {
         eventId: auditId,
-        eventType: "owner.tenant_administrator.created",
+        eventType: "owner.tenant_admin.created",
         actorUsername,
         subdomain: tenant.subdomain,
-        details: { username: administrator.username },
+        details: { username: tenantAdmin.username },
       });
     } catch {
       const auditState = await resolveAuditState(masterDatabase, auditId);
       if (auditState === "unknown") {
-        throw new TenantAdministratorError(
-          "administrator_create_reconciliation_required",
-          "The administrator creation audit state could not be reconciled safely.",
+        throw new TenantAdminError(
+          "tenant_admin_create_reconciliation_required",
+          "The tenant admin creation audit state could not be reconciled safely.",
         );
       }
       if (auditState === "absent") {
         try {
           const removed = await tenantDatabase("core_admin.client_accounts")
-            .where({ id: administrator.id, username: administrator.username })
+            .where({ id: tenantAdmin.id, username: tenantAdmin.username })
             .del();
           if (removed !== 1) {
-            throw new Error("Administrator creation compensation did not remove one row.");
+            throw new Error("Tenant admin creation compensation did not remove one row.");
           }
         } catch {
-          throw new TenantAdministratorError(
-            "administrator_create_reconciliation_required",
-            "The administrator creation could not be reconciled safely.",
+          throw new TenantAdminError(
+            "tenant_admin_create_reconciliation_required",
+            "The tenant admin creation could not be reconciled safely.",
           );
         }
-        throw new TenantAdministratorError(
-          "administrator_create_audit_failed",
-          "The administrator could not be created and was rolled back.",
+        throw new TenantAdminError(
+          "tenant_admin_create_audit_failed",
+          "The tenant admin could not be created and was rolled back.",
         );
       }
     }
 
-    return { status: "administrator_created", tenantId, subdomain: tenant.subdomain, administrator };
+    return { status: "tenant_admin_created", tenantId, subdomain: tenant.subdomain, tenantAdmin };
   } catch (error) {
-    if (error instanceof TenantAdministratorError) {
+    if (error instanceof TenantAdminError) {
       throw error;
     }
-    throw new TenantAdministratorError(
+    throw new TenantAdminError(
       "tenant_database_unavailable",
       "The tenant database is unavailable.",
     );
@@ -451,13 +451,13 @@ export async function createTenantAdministrator(
   }
 }
 
-export async function updateTenantAdministratorStatus(
+export async function updateTenantAdminStatus(
   masterDatabase: Knex,
   actorUsername: string,
   tenantId: string,
-  administratorId: string,
+  tenantAdminId: string,
   active: boolean,
-): Promise<{ status: "administrator_status_updated"; tenantId: string; subdomain: string; administratorId: string; active: boolean }> {
+): Promise<{ status: "tenant_admin_status_updated"; tenantId: string; subdomain: string; tenantAdminId: string; active: boolean }> {
   const tenant = await findTenantReference(masterDatabase, tenantId);
   const tenantDatabase = createPostgresClient({
     databaseName: tenant.database_name,
@@ -465,35 +465,35 @@ export async function updateTenantAdministratorStatus(
 
   try {
     await tenantDatabase.raw("select 1");
-    const administrator = await tenantDatabase.transaction(async (transaction) => {
+    const tenantAdmin = await tenantDatabase.transaction(async (transaction) => {
       const account = await transaction<{
         id: string;
         username: string;
         is_active: boolean;
       }>("core_admin.client_accounts")
         .select("id", "username", "is_active")
-        .where("id", administratorId)
+        .where("id", tenantAdminId)
         .andWhere("account_type", ADMIN_ACCOUNT_TYPE)
         .forUpdate()
         .first();
       if (!account) {
-        throw new TenantAdministratorError(
-          "administrator_not_found",
-          "That tenant administrator was not found.",
+        throw new TenantAdminError(
+          "tenant_admin_not_found",
+          "That tenant admin was not found.",
         );
       }
 
       const updated = await transaction("core_admin.client_accounts")
         .where({
-          id: administratorId,
+          id: tenantAdminId,
           account_type: ADMIN_ACCOUNT_TYPE,
           is_active: account.is_active,
         })
         .update({ is_active: active, updated_at: transaction.fn.now() });
       if (updated !== 1) {
-        throw new TenantAdministratorError(
-          "administrator_not_found",
-          "That tenant administrator was not found.",
+        throw new TenantAdminError(
+          "tenant_admin_not_found",
+          "That tenant admin was not found.",
         );
       }
       return account;
@@ -504,50 +504,50 @@ export async function updateTenantAdministratorStatus(
       await recordPlatformAudit(masterDatabase, {
         eventId: auditId,
         eventType: active
-          ? "owner.tenant_administrator.activated"
-          : "owner.tenant_administrator.deactivated",
+          ? "owner.tenant_admin.activated"
+          : "owner.tenant_admin.deactivated",
         actorUsername,
         subdomain: tenant.subdomain,
-        details: { username: administrator.username, active },
+        details: { username: tenantAdmin.username, active },
       });
     } catch {
       const auditState = await resolveAuditState(masterDatabase, auditId);
       if (auditState === "unknown") {
-        throw new TenantAdministratorError(
-          "administrator_deactivate_reconciliation_required",
-          "The administrator status audit state could not be reconciled safely.",
+        throw new TenantAdminError(
+          "tenant_admin_deactivate_reconciliation_required",
+          "The tenant admin status audit state could not be reconciled safely.",
         );
       }
       if (auditState === "absent") {
         try {
           const restored = await tenantDatabase("core_admin.client_accounts")
-            .where({ id: administratorId, is_active: active })
+            .where({ id: tenantAdminId, is_active: active })
             .update({
-              is_active: administrator.is_active,
+              is_active: tenantAdmin.is_active,
               updated_at: tenantDatabase.fn.now(),
             });
           if (restored !== 1) {
-            throw new Error("Administrator status compensation did not update one row.");
+            throw new Error("Tenant admin status compensation did not update one row.");
           }
         } catch {
-          throw new TenantAdministratorError(
-            "administrator_deactivate_reconciliation_required",
-            "The administrator status could not be reconciled safely.",
+          throw new TenantAdminError(
+            "tenant_admin_deactivate_reconciliation_required",
+            "The tenant admin status could not be reconciled safely.",
           );
         }
-        throw new TenantAdministratorError(
-          "administrator_deactivate_audit_failed",
-          "The administrator status could not be recorded and was rolled back.",
+        throw new TenantAdminError(
+          "tenant_admin_deactivate_audit_failed",
+          "The tenant admin status could not be recorded and was rolled back.",
         );
       }
     }
 
-    return { status: "administrator_status_updated", tenantId, subdomain: tenant.subdomain, administratorId, active };
+    return { status: "tenant_admin_status_updated", tenantId, subdomain: tenant.subdomain, tenantAdminId, active };
   } catch (error) {
-    if (error instanceof TenantAdministratorError) {
+    if (error instanceof TenantAdminError) {
       throw error;
     }
-    throw new TenantAdministratorError(
+    throw new TenantAdminError(
       "tenant_database_unavailable",
       "The tenant database is unavailable.",
     );

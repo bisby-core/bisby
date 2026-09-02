@@ -11,9 +11,9 @@ tags:
   - name: health
     description: Health operations
   - name: routing
-    description: Tenant route authorization operations
+    description: Customer-space route authorization operations
   - name: administration
-    description: Tenant-local role and account administration
+    description: Customer-space role and account administration
 paths:
   /healthz:
     get:
@@ -32,7 +32,7 @@ paths:
     post:
       operationId: login
       tags: [auth]
-      summary: Sign in with a tenant-local account
+      summary: Sign in with a customer-space account
       requestBody:
         required: true
         content:
@@ -41,7 +41,7 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Authenticated tenant-local account
+          description: Authenticated customer-space account
           content:
             application/json:
               schema:
@@ -62,7 +62,7 @@ paths:
     get:
       operationId: getCurrentUser
       tags: [auth]
-      summary: Get the current tenant-local account
+      summary: Get the current customer-space account
       responses:
         "200":
           description: Current authenticated account
@@ -80,7 +80,7 @@ paths:
     post:
       operationId: changePassword
       tags: [auth]
-      summary: Replace a tenant-local account password
+      summary: Replace a customer-space account password
       requestBody:
         required: true
         content:
@@ -110,7 +110,7 @@ paths:
     post:
       operationId: logout
       tags: [auth]
-      summary: End the current tenant-local session
+      summary: End the current customer-space session
       responses:
         "200":
           description: Session ended
@@ -118,11 +118,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthLogoutResponse"
+  /customer-context:
+    get:
+      operationId: getCustomerContext
+      tags: [routing]
+      summary: Get the resolved customer-space identity
+      responses:
+        "200":
+          description: Customer name and subdomain for this customer host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerContext"
   /access/{moduleKey}/{workspaceKey}:
     get:
       operationId: getRouteAccess
       tags: [routing]
-      summary: Check access to a tenant workspace route
+      summary: Check access to a customer workspace route
       description: Returns access only when the authenticated local account is assigned to the requested module and workspace.
       parameters:
         - name: moduleKey
@@ -222,7 +234,14 @@ paths:
     get:
       operationId: getModuleWorkspaceControl
       tags: [administration]
-      summary: List the current module administrator's workspaces and content controls
+      summary: List a selected module's workspaces and content controls
+      description: A tenant admin must explicitly select an enabled module. A module admin may only read their assigned enabled module.
+      parameters:
+        - name: moduleKey
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ModuleKey"
       responses:
         "200":
           description: Module workspace control snapshot
@@ -237,7 +256,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "403":
-          description: An active module administrator is required
+          description: The selected module is not available to this administrator
           content:
             application/json:
               schema:
@@ -259,6 +278,124 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ManagedModuleWorkspace"
+  /admin/workspaces/hierarchy:
+    post:
+      operationId: addModuleWorkspaceHierarchyNode
+      tags: [administration]
+      summary: Add a semantic page, tab, or card across every workspace in the assigned module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceHierarchyNodeInput"
+      responses:
+        "201":
+          description: Hierarchy node added to every module workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceControlSnapshot"
+        "400":
+          description: Invalid hierarchy node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The assigned active module admin role is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The semantic parent is missing from a workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: The semantic key already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/workspaces/hierarchy/{nodeType}/{nodeKey}:
+    parameters:
+      - name: nodeType
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/WorkspaceContentNodeType"
+      - name: nodeKey
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/WorkspaceContentNodeKey"
+    patch:
+      operationId: updateModuleWorkspaceHierarchyNode
+      tags: [administration]
+      summary: Edit a semantic page, tab, or card across every workspace in the assigned module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceHierarchyNodeUpdate"
+      responses:
+        "200":
+          description: Hierarchy node updated in every module workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceControlSnapshot"
+        "400":
+          description: Invalid hierarchy node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The assigned active module admin role is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The semantic node or parent is missing from a workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: The semantic key already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: removeModuleWorkspaceHierarchyNode
+      tags: [administration]
+      summary: Remove a semantic node and descendants across every workspace in the assigned module
+      responses:
+        "200":
+          description: Hierarchy node and descendants removed from every module workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceControlSnapshot"
+        "403":
+          description: The assigned active module admin role is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The semantic node is missing from a workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /admin/tenant-workspaces:
     get:
       operationId: getTenantWorkspaces
@@ -368,7 +505,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "403":
-          description: An active module administrator is required
+          description: An active module admin is required
           content:
             application/json:
               schema:
@@ -392,7 +529,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ModuleWorkspaceRemovedResponse"
         "403":
-          description: An active module administrator is required
+          description: An active module admin is required
           content:
             application/json:
               schema:
@@ -434,7 +571,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "403":
-          description: An active module administrator is required
+          description: An active module admin is required
           content:
             application/json:
               schema:
@@ -447,7 +584,7 @@ paths:
                 $ref: "#/components/schemas/ApiError"
   /admin/users:
     get:
-      operationId: getTenantAdministration
+      operationId: getTenantAdmin
       tags: [administration]
       summary: Get the current tenant administration scope and managed accounts
       responses:
@@ -456,7 +593,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TenantAdministrationSnapshot"
+                $ref: "#/components/schemas/TenantAdminSnapshot"
         "401":
           description: Authentication is required
           content:
@@ -478,7 +615,7 @@ paths:
     post:
       operationId: createManagedTenantAccount
       tags: [administration]
-      summary: Create a module administrator, staff, or client account
+      summary: Create a module admin, module staff, or client account
       requestBody:
         required: true
         content:
@@ -547,6 +684,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteManagedTenantAccount
+      tags: [administration]
+      summary: Permanently delete a module staff or client account and its assignments
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Managed account and assignments deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountDeletionResponse"
+        "403":
+          description: The exact module admin is required
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: The managed account does not exist
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/users/{accountId}/access:
     patch:
       operationId: updateManagedTenantAccountAccess
@@ -627,6 +786,331 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /admin/tenant-admin-staff:
+    get:
+      operationId: getTenantAdminStaffAdministration
+      tags: [administration]
+      summary: List tenant admin staff and Tenant Admin Staff Workspaces
+      responses:
+        "200":
+          description: Tenant admin staff administration snapshot
+          content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffAdministrationSnapshot" } } }
+        "403": { description: A tenant admin is required }
+    post:
+      operationId: createTenantAdminStaff
+      tags: [administration]
+      summary: Create a tenant admin staff account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminStaffCreateRequest"
+      responses:
+        "201":
+          description: Tenant admin staff account created
+          content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffAccount" } } }
+  /admin/tenant-admin-staff-workspaces:
+    post:
+      operationId: createTenantAdminStaffWorkspace
+      tags: [administration]
+      summary: Create a Tenant Admin Staff Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantAdminStaffWorkspaceCreateRequest"
+      responses:
+        "201":
+          description: Internal workspace created
+          content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspace" } } }
+  /admin/tenant-admin-staff-workspaces/hierarchy:
+    post:
+      operationId: addTenantAdminStaffWorkspaceHierarchyNode
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceHierarchyNodeInput" } } }
+      responses:
+        "201": { description: Hierarchy node added to every Design Admin Staff Workspace, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceList" } } } }
+  /admin/tenant-admin-staff-workspaces/hierarchy/{nodeType}/{nodeKey}:
+    parameters:
+      - { name: nodeType, in: path, required: true, schema: { $ref: "#/components/schemas/WorkspaceContentNodeType" } }
+      - { name: nodeKey, in: path, required: true, schema: { $ref: "#/components/schemas/WorkspaceContentNodeKey" } }
+    patch:
+      operationId: updateTenantAdminStaffWorkspaceHierarchyNode
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceHierarchyNodeUpdate" } } }
+      responses:
+        "200": { description: Hierarchy node updated in every Design Admin Staff Workspace, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceList" } } } }
+    delete:
+      operationId: removeTenantAdminStaffWorkspaceHierarchyNode
+      tags: [administration]
+      responses:
+        "200": { description: Hierarchy node removed from every Design Admin Staff Workspace, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceList" } } } }
+  /admin/tenant-admin-staff/{accountId}:
+    patch:
+      operationId: updateTenantAdminStaffStatus
+      tags: [administration]
+      parameters: [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffStatusRequest" } } }
+      responses: { "200": { description: Tenant admin staff status updated, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffStatusResponse" } } } } }
+    delete:
+      operationId: deleteTenantAdminStaff
+      tags: [administration]
+      summary: Permanently delete a tenant admin staff account and its assignments
+      parameters: [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Tenant admin staff account and assignments deleted, content: { application/json: { schema: { $ref: "#/components/schemas/StaffAccountDeletionResponse" } } } }
+        "403": { description: A tenant admin is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Tenant admin staff account not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /admin/tenant-admin-staff/{accountId}/assignments:
+    put:
+      operationId: updateTenantAdminStaffAssignments
+      tags: [administration]
+      parameters: [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffAssignmentsRequest" } } }
+      responses: { "200": { description: Tenant admin staff assignments updated, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffAssignmentsResponse" } } } } }
+  /admin/tenant-admin-staff/{accountId}/reset-password:
+    post:
+      operationId: resetTenantAdminStaffPassword
+      tags: [administration]
+      parameters: [{ name: accountId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffPasswordResetRequest" } } }
+      responses: { "200": { description: Tenant admin staff password reset, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffPasswordResetResponse" } } } } }
+  /admin/tenant-admin-staff-workspaces/{workspaceKey}:
+    patch:
+      operationId: updateTenantAdminStaffWorkspace
+      tags: [administration]
+      parameters: [{ name: workspaceKey, in: path, required: true, schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceUpdateRequest" } } }
+      responses: { "200": { description: Tenant Admin Staff Workspace updated, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspace" } } } } }
+    delete:
+      operationId: removeTenantAdminStaffWorkspace
+      tags: [administration]
+      parameters: [{ name: workspaceKey, in: path, required: true, schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" } }]
+      responses: { "200": { description: Tenant Admin Staff Workspace deleted, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceRemovalResponse" } } } } }
+  /admin/tenant-admin-staff-workspaces/{workspaceKey}/access:
+    put:
+      operationId: updateTenantAdminStaffWorkspaceAccess
+      tags: [administration]
+      parameters: [{ name: workspaceKey, in: path, required: true, schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceAccessRequest" } } }
+      responses:
+        "200": { description: Design Admin Staff Workspace access updated, content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspace" } } } }
+  /platform-staff/login:
+    post:
+      operationId: loginPlatformStaff
+      tags: [administration]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LoginRequest" } } } }
+      responses:
+        "200": { description: Authenticated platform staff account, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffSession" } } } }
+        "400": { description: Invalid credentials payload, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Invalid platform staff credentials, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /platform-staff/logout:
+    post:
+      operationId: logoutPlatformStaff
+      tags: [administration]
+      responses:
+        "200": { description: Platform staff session ended, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffLogoutResponse" } } } }
+  /platform-staff/me:
+    get:
+      operationId: getCurrentPlatformStaff
+      tags: [administration]
+      responses:
+        "200": { description: Current platform staff account, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffSession" } } } }
+        "401": { description: Platform staff authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /platform-staff/change-password:
+    post:
+      operationId: changePlatformStaffPassword
+      tags: [administration]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ChangePasswordRequest" } } } }
+      responses:
+        "200": { description: Password changed, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffPasswordChangeResponse" } } } }
+        "400": { description: Invalid password change payload, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Authentication or current password is invalid, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /platform-staff/workspaces:
+    get:
+      operationId: getPlatformStaffWorkspaces
+      tags: [administration]
+      responses:
+        "200": { description: Assigned active platform workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" } } } }
+        "401": { description: Platform staff authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: A password change is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /platform-staff/workspaces/{workspaceKey}:
+    get:
+      operationId: getPlatformStaffWorkspace
+      tags: [administration]
+      parameters: [{ name: workspaceKey, in: path, required: true, schema: { $ref: "#/components/schemas/PlatformWorkspaceKey" } }]
+      responses:
+        "200": { description: Assigned platform workspace, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" } } } }
+        "401": { description: Platform staff authentication is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: A password change is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Workspace is not assigned or does not exist, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/platform-staff:
+    get:
+      operationId: getPlatformStaffAdministration
+      tags: [administration]
+      responses:
+        "200": { description: Platform staff and assignable workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffSnapshot" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    post:
+      operationId: createPlatformStaff
+      tags: [administration]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffCreateRequest" } } } }
+      responses:
+        "201": { description: Platform staff created, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffCreateResponse" } } } }
+        "400": { description: Invalid staff or workspace assignment, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "409": { description: Platform staff username already exists, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/platform-staff/{platformStaffId}:
+    delete:
+      operationId: deletePlatformStaff
+      tags: [administration]
+      parameters: [{ name: platformStaffId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Platform staff deleted, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffDeletionResponse" } } } }
+        "400": { description: Invalid platform staff identifier, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Platform staff not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/platform-staff/{platformStaffId}/workspaces:
+    put:
+      operationId: updatePlatformStaffWorkspaces
+      tags: [administration]
+      parameters: [{ name: platformStaffId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffWorkspacesRequest" } } } }
+      responses:
+        "200": { description: Platform staff workspace assignments updated, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffWorkspacesResponse" } } } }
+        "400": { description: Invalid staff identifier or workspace assignment, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Platform staff not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/platform-staff/{platformStaffId}/status:
+    patch:
+      operationId: updatePlatformStaffStatus
+      tags: [administration]
+      parameters: [{ name: platformStaffId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ActiveStatusRequest" } } } }
+      responses:
+        "200": { description: Platform staff status updated, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffStatusResponse" } } } }
+        "400": { description: Invalid staff status or workspace assignment, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Platform staff not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/platform-staff/{platformStaffId}/reset-password:
+    post:
+      operationId: resetPlatformStaffPassword
+      tags: [administration]
+      parameters: [{ name: platformStaffId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffPasswordResetRequest" } } } }
+      responses:
+        "200": { description: Platform staff temporary password reset, content: { application/json: { schema: { $ref: "#/components/schemas/PlatformStaffPasswordResetResponse" } } } }
+        "400": { description: Invalid staff identifier or temporary password, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Platform staff not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/workspaces:
+    get:
+      operationId: getPlatformWorkspaces
+      tags: [administration]
+      responses:
+        "200": { description: Platform Admin Staff Workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" } } } }
+    post:
+      operationId: createPlatformWorkspace
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceMetadataRequest" } } }
+      responses:
+        "201": { description: Platform Admin Staff Workspace created, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" } } } }
+  /owner/workspaces/hierarchy:
+    post:
+      operationId: addPlatformWorkspaceHierarchyNode
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceHierarchyNodeInput" } } }
+      responses:
+        "201": { description: Hierarchy added across all Platform Admin Staff Workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" } } } }
+        "400": { description: Invalid hierarchy payload or parent relationship, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: A required workspace parent is missing, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "409": { description: The semantic hierarchy key already exists, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/workspaces/hierarchy/{nodeType}/{nodeKey}:
+    parameters:
+      - { name: nodeType, in: path, required: true, schema: { $ref: "#/components/schemas/WorkspaceContentNodeType" } }
+      - { name: nodeKey, in: path, required: true, schema: { $ref: "#/components/schemas/WorkspaceContentNodeKey" } }
+    patch:
+      operationId: updatePlatformWorkspaceHierarchyNode
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceHierarchyNodeUpdate" } } }
+      responses:
+        "200": { description: Hierarchy updated across all Platform Admin Staff Workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" } } } }
+        "400": { description: Invalid hierarchy payload or parent relationship, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: The semantic node or parent is missing, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "409": { description: The replacement semantic key already exists, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: removePlatformWorkspaceHierarchyNode
+      tags: [administration]
+      responses:
+        "200": { description: Hierarchy removed across all Platform Admin Staff Workspaces, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspaceList" } } } }
+        "400": { description: Invalid hierarchy target, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Platform Administrator session is required, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: The semantic node is missing, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+  /owner/workspaces/{workspaceKey}:
+    parameters:
+      - { name: workspaceKey, in: path, required: true, schema: { type: string, pattern: "^pws-[1-9][0-9]*$" } }
+    patch:
+      operationId: updatePlatformWorkspace
+      tags: [administration]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceMetadataRequest" } } }
+      responses:
+        "200": { description: Platform Admin Staff Workspace updated, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" } } } }
+    delete:
+      operationId: removePlatformWorkspace
+      tags: [administration]
+      responses:
+        "200": { description: Platform Admin Staff Workspace removed, content: { application/json: { schema: { $ref: "#/components/schemas/ModuleWorkspaceRemovedResponse" } } } }
+  /owner/workspaces/{workspaceKey}/access:
+    put:
+      operationId: updatePlatformWorkspaceAccess
+      tags: [administration]
+      parameters: [{ name: workspaceKey, in: path, required: true, schema: { type: string, pattern: "^pws-[1-9][0-9]*$" } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/WorkspaceAccessRequest" } } }
+      responses:
+        "200": { description: Platform Admin Staff Workspace access updated, content: { application/json: { schema: { $ref: "#/components/schemas/ManagedRegistryWorkspace" } } } }
+  /tenant-admin-staff/{workspaceKey}/access:
+    get:
+      operationId: getTenantAdminStaffWorkspaceAccess
+      tags: [routing]
+      summary: Authorize a tenant admin staff workspace destination
+      parameters:
+        - name: workspaceKey
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+      responses:
+        "200":
+          description: Tenant admin staff workspace access granted
+          content: { application/json: { schema: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceAccess" } } }
+        "403": { description: Tenant admin staff account is not assigned to this workspace }
 components:
   schemas:
     LoginRequest:
@@ -659,6 +1143,7 @@ components:
             - module_admin
             - module_staff
             - client
+            - tenant_admin_staff
         moduleKey:
           oneOf:
             - $ref: "#/components/schemas/ModuleKey"
@@ -666,7 +1151,7 @@ components:
         workspaceKeys:
           type: array
           items:
-            $ref: "#/components/schemas/WorkspaceKey"
+            $ref: "#/components/schemas/AuthenticatedWorkspaceKey"
         requiresPasswordChange:
           type: boolean
       required:
@@ -687,7 +1172,7 @@ components:
           maxLength: 255
         newPassword:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 255
       required:
         - currentPassword
@@ -713,6 +1198,17 @@ components:
           type: boolean
       required:
         - authenticated
+    CustomerContext:
+      type: object
+      properties:
+        customerName:
+          type: string
+          minLength: 1
+        subdomain:
+          type: string
+      required:
+        - customerName
+        - subdomain
     HealthStatus:
       type: object
       properties:
@@ -734,12 +1230,135 @@ components:
     WorkspaceKey:
       type: string
       pattern: "^ws-[1-9][0-9]*$"
+    TenantAdminStaffWorkspaceKey:
+      type: string
+      pattern: "^tasw-[1-9][0-9]*$"
+    TenantAdminStaffCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [username, displayName, temporaryPassword, workspaceKeys]
+      properties:
+        username: { type: string }
+        displayName: { type: string }
+        temporaryPassword: { type: string, minLength: 8 }
+        workspaceKeys: { type: array, minItems: 1, items: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" } }
+    TenantAdminStaffWorkspaceCreateRequest:
+      $ref: "#/components/schemas/WorkspaceMetadataRequest"
+    TenantAdminStaffStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [active]
+      properties:
+        active: { type: boolean }
+    TenantAdminStaffAssignmentsRequest:
+      type: object
+      additionalProperties: false
+      required: [workspaceKeys]
+      properties:
+        workspaceKeys: { type: array, minItems: 1, items: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" } }
+    TenantAdminStaffPasswordResetRequest:
+      type: object
+      additionalProperties: false
+      required: [temporaryPassword]
+      properties:
+        temporaryPassword: { type: string, minLength: 8 }
+    TenantAdminStaffWorkspaceUpdateRequest:
+      $ref: "#/components/schemas/WorkspaceMetadataRequest"
+    AuthenticatedWorkspaceKey:
+      oneOf:
+        - $ref: "#/components/schemas/WorkspaceKey"
+        - $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey"
+    TenantAdminStaffWorkspace:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        workspaceKey: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+        displayName: { type: string }
+        workspaceType: { $ref: "#/components/schemas/WorkspaceType" }
+        isActive: { type: boolean }
+        publicVisible: { type: boolean }
+        contactEnabled: { type: boolean }
+        sortOrder: { type: integer }
+        createdAt: { type: string, format: date-time }
+        contentNodes: { type: array, items: { $ref: "#/components/schemas/WorkspaceContentNode" } }
+      required: [id, workspaceKey, displayName, workspaceType, isActive, publicVisible, contactEnabled, sortOrder, createdAt, contentNodes]
+    TenantAdminStaffWorkspaceList:
+      type: object
+      properties:
+        workspaces: { type: array, items: { $ref: "#/components/schemas/TenantAdminStaffWorkspace" } }
+      required: [workspaces]
+    TenantAdminStaffAccount:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        isActive: { type: boolean }
+        requiresPasswordChange: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        workspaceKeys:
+          type: array
+          items: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+      required: [id, username, displayName, isActive, requiresPasswordChange, createdAt, workspaceKeys]
+    StaffAccountDeletionResponse:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        deleted: { type: boolean, enum: [true] }
+      required: [accountId, deleted]
+    TenantAdminStaffAdministrationSnapshot:
+      type: object
+      properties:
+        workspaces:
+          type: array
+          items: { $ref: "#/components/schemas/TenantAdminStaffWorkspace" }
+        staff:
+          type: array
+          items: { $ref: "#/components/schemas/TenantAdminStaffAccount" }
+      required: [workspaces, staff]
+    TenantAdminStaffAssignmentsResponse:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        workspaceKeys:
+          type: array
+          items: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+      required: [accountId, workspaceKeys]
+    TenantAdminStaffStatusResponse:
+      type: object
+      properties:
+        accountId: { type: string, format: uuid }
+        active: { type: boolean }
+      required: [accountId, active]
+    TenantAdminStaffPasswordResetResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [password_reset] }
+        accountId: { type: string, format: uuid }
+      required: [status, accountId]
+    TenantAdminStaffWorkspaceRemovalResponse:
+      type: object
+      properties:
+        workspaceKey: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+        removed: { type: boolean, enum: [true] }
+      required: [workspaceKey, removed]
+    TenantAdminStaffWorkspaceAccess:
+      type: object
+      properties:
+        allowed: { type: boolean, enum: [true] }
+        workspaceKey: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+        workspaceKeys:
+          type: array
+          items: { $ref: "#/components/schemas/TenantAdminStaffWorkspaceKey" }
+      required: [allowed, workspaceKey, workspaceKeys]
     RouteAccess:
       type: object
       properties:
         allowed:
           type: boolean
         tenantId:
+          type: string
+        customerName:
           type: string
         subdomain:
           type: string
@@ -750,6 +1369,7 @@ components:
       required:
         - allowed
         - tenantId
+        - customerName
         - subdomain
         - moduleKey
         - workspaceKey
@@ -792,7 +1412,7 @@ components:
         - isActive
         - requiresPasswordChange
         - createdAt
-    TenantAdministrationCurrentUser:
+    TenantAdminCurrentUser:
       type: object
       properties:
         accountId:
@@ -814,19 +1434,21 @@ components:
         - username
         - role
         - moduleKey
-    TenantAdministrationSnapshot:
+    TenantAdminSnapshot:
       type: object
       properties:
         tenantId:
           type: string
         subdomain:
           type: string
+        customerName:
+          type: string
         enabledModules:
           type: array
           items:
             $ref: "#/components/schemas/ModuleKey"
         currentUser:
-          $ref: "#/components/schemas/TenantAdministrationCurrentUser"
+          $ref: "#/components/schemas/TenantAdminCurrentUser"
         workspaces:
           type: array
           items:
@@ -838,6 +1460,7 @@ components:
       required:
         - tenantId
         - subdomain
+        - customerName
         - enabledModules
         - currentUser
         - workspaces
@@ -881,7 +1504,7 @@ components:
             $ref: "#/components/schemas/WorkspaceKey"
         temporaryPassword:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 255
       required:
         - username
@@ -962,6 +1585,14 @@ components:
             - type: string
               format: uuid
             - type: "null"
+        semanticId:
+          type: string
+          pattern: "^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$"
+        parentSemanticId:
+          oneOf:
+            - type: string
+              pattern: "^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$"
+            - type: "null"
         type:
           $ref: "#/components/schemas/WorkspaceContentNodeType"
         key:
@@ -975,11 +1606,60 @@ components:
       required:
         - id
         - parentId
+        - semanticId
+        - parentSemanticId
         - type
         - key
         - displayName
         - sortOrder
         - accessLevel
+    WorkspaceContentNodeKey:
+      type: string
+      pattern: "^[a-z0-9](?:[a-z0-9-]{0,126})$"
+    WorkspaceHierarchyNodeInput:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          $ref: "#/components/schemas/WorkspaceContentNodeType"
+        key:
+          $ref: "#/components/schemas/WorkspaceContentNodeKey"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+        parentType:
+          oneOf:
+            - $ref: "#/components/schemas/WorkspaceContentNodeType"
+            - type: "null"
+        parentKey:
+          oneOf:
+            - $ref: "#/components/schemas/WorkspaceContentNodeKey"
+            - type: "null"
+      required: [type, key, displayName, sortOrder, parentType, parentKey]
+    WorkspaceHierarchyNodeUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        key:
+          $ref: "#/components/schemas/WorkspaceContentNodeKey"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sortOrder:
+          type: integer
+        parentType:
+          oneOf:
+            - $ref: "#/components/schemas/WorkspaceContentNodeType"
+            - type: "null"
+        parentKey:
+          oneOf:
+            - $ref: "#/components/schemas/WorkspaceContentNodeKey"
+            - type: "null"
+      required: [key, displayName, sortOrder, parentType, parentKey]
     ManagedModuleWorkspace:
       type: object
       properties:
@@ -1104,7 +1784,7 @@ components:
       properties:
         temporaryPassword:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 255
       required:
         - temporaryPassword
@@ -1190,6 +1870,111 @@ components:
           type: array
           items: { $ref: "#/components/schemas/PublicWorkspace" }
       required: [workspaces]
+    PlatformWorkspaceKey:
+      type: string
+      pattern: "^pws-[1-9][0-9]*$"
+    PlatformStaffSession:
+      type: object
+      properties:
+        authenticated: { type: boolean, const: true }
+        accountId: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        requiresPasswordChange: { type: boolean }
+      required: [authenticated, accountId, username, displayName, requiresPasswordChange]
+    PlatformStaffLogoutResponse:
+      type: object
+      properties: { authenticated: { type: boolean, const: false } }
+      required: [authenticated]
+    PlatformStaffPasswordChangeResponse:
+      type: object
+      properties:
+        status: { type: string, const: password_changed }
+        requiresPasswordChange: { type: boolean, const: false }
+      required: [status, requiresPasswordChange]
+    PlatformStaffAccount:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        isActive: { type: boolean }
+        requiresPasswordChange: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        workspaceKeys:
+          type: array
+          items: { $ref: "#/components/schemas/PlatformWorkspaceKey" }
+      required: [id, username, displayName, isActive, requiresPasswordChange, createdAt, workspaceKeys]
+    PlatformStaffWorkspace:
+      type: object
+      properties:
+        workspaceKey: { $ref: "#/components/schemas/PlatformWorkspaceKey" }
+        displayName: { type: string }
+        isActive: { type: boolean }
+      required: [workspaceKey, displayName, isActive]
+    PlatformStaffSnapshot:
+      type: object
+      properties:
+        staff: { type: array, items: { $ref: "#/components/schemas/PlatformStaffAccount" } }
+        workspaces: { type: array, items: { $ref: "#/components/schemas/PlatformStaffWorkspace" } }
+      required: [staff, workspaces]
+    PlatformStaffCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        username: { type: string, minLength: 1, maxLength: 255 }
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        temporaryPassword: { type: string, minLength: 8, maxLength: 255 }
+        workspaceKeys: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/PlatformWorkspaceKey" } }
+      required: [username, displayName, temporaryPassword, workspaceKeys]
+    PlatformStaffWorkspacesRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspaceKeys: { type: array, minItems: 1, uniqueItems: true, items: { $ref: "#/components/schemas/PlatformWorkspaceKey" } }
+      required: [workspaceKeys]
+    ActiveStatusRequest:
+      type: object
+      additionalProperties: false
+      properties: { active: { type: boolean } }
+      required: [active]
+    PlatformStaffPasswordResetRequest:
+      type: object
+      additionalProperties: false
+      properties: { temporaryPassword: { type: string, minLength: 8, maxLength: 255 } }
+      required: [temporaryPassword]
+    PlatformStaffCreateResponse:
+      type: object
+      properties:
+        status: { type: string, const: platform_staff_created }
+        platformStaff: { $ref: "#/components/schemas/PlatformStaffAccount" }
+      required: [status, platformStaff]
+    PlatformStaffWorkspacesResponse:
+      type: object
+      properties:
+        status: { type: string, const: platform_staff_workspaces_updated }
+        platformStaff: { $ref: "#/components/schemas/PlatformStaffAccount" }
+      required: [status, platformStaff]
+    PlatformStaffStatusResponse:
+      type: object
+      properties:
+        status: { type: string, const: platform_staff_status_updated }
+        platformStaff: { $ref: "#/components/schemas/PlatformStaffAccount" }
+      required: [status, platformStaff]
+    PlatformStaffDeletionResponse:
+      type: object
+      properties:
+        status: { type: string, const: platform_staff_deleted }
+        platformStaffId: { type: string, format: uuid }
+        deleted: { type: boolean, const: true }
+      required: [status, platformStaffId, deleted]
+    PlatformStaffPasswordResetResponse:
+      type: object
+      properties:
+        status: { type: string, const: platform_staff_temporary_password_reset }
+        platformStaffId: { type: string, format: uuid }
+        requiresPasswordChange: { type: boolean, const: true }
+      required: [status, platformStaffId, requiresPasswordChange]
     ApiError:
       type: object
       properties:

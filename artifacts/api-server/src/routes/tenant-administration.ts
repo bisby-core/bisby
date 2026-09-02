@@ -13,7 +13,8 @@ import {
 } from "./schemas";
 import {
   createManagedTenantAccount,
-  getTenantAdministrationSnapshot,
+  deleteManagedTenantAccount,
+  getTenantAdminSnapshot,
   resetManagedTenantAccountPassword,
   TenantAdministrationError,
   updateManagedTenantAccountStatus,
@@ -52,11 +53,12 @@ router.get("/admin/users", async (req, res, next) => {
   if (!requireAdministrationContext(req, res)) return;
   try {
     res.json(
-      await getTenantAdministrationSnapshot(
+      await getTenantAdminSnapshot(
         req.tenantDatabase!,
         req.authenticatedUser!,
         req.tenantContext!.tenantId,
         req.tenantContext!.subdomain,
+        req.tenantContext!.customerName,
         req.tenantContext!.enabledModules,
       ),
     );
@@ -136,6 +138,31 @@ router.patch("/admin/users/:accountId", async (req, res, next) => {
         req.authenticatedUser!,
         params.data.accountId,
         body.data.active,
+        req.tenantContext!.enabledModules,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof TenantAdministrationError) {
+      res.status(statusFor(error)).json({ error: error.code, message: error.message });
+      return;
+    }
+    next(error);
+  }
+});
+
+router.delete("/admin/users/:accountId", async (req, res, next) => {
+  if (!requireAdministrationContext(req, res)) return;
+  const params = TenantAdminUserParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "invalid_managed_account_target" });
+    return;
+  }
+  try {
+    res.json(
+      await deleteManagedTenantAccount(
+        req.tenantDatabase!,
+        req.authenticatedUser!,
+        params.data.accountId,
         req.tenantContext!.enabledModules,
       ),
     );

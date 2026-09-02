@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import { after, before, test } from "node:test";
@@ -91,29 +92,14 @@ test("development proxy replaces conflicting host headers", async () => {
   assert.equal(receivedHeaders["x-forwarded-host"], "design.bisby.pro");
 });
 
-test("development proxy selects a tenant from its explicit preview API prefix", async () => {
-  const status = await new Promise((resolve, reject) => {
-    const request = http.request(
-      {
-        hostname: "127.0.0.1",
-        port: proxyPort,
-        path: "/__bisby-dev/clientalpha/api/probe",
-        headers: {
-          host: "attacker.invalid",
-          "x-forwarded-host": "attacker.invalid",
-        },
-      },
-      (response) => {
-        response.resume();
-        response.once("end", () => resolve(response.statusCode));
-      },
-    );
-    request.once("error", reject);
-    request.end();
-  });
+test("development preview launches only the Design tenant plane", async () => {
+  const runner = await readFile(
+    new URL("./dev-planes.mjs", import.meta.url),
+    "utf8",
+  );
 
-  assert.equal(status, 200);
-  assert.equal(receivedHeaders.host, "clientalpha.bisby.pro");
-  assert.equal(receivedHeaders["x-forwarded-host"], "clientalpha.bisby.pro");
+  assert.match(runner, /VITE_BISBY_DEV_PLANE:\s*"design"/);
+  assert.doesNotMatch(runner, /key:\s*"platform"/);
+  assert.doesNotMatch(runner, /key:\s*"clientalpha"/);
   assert.equal(receivedPath, "/api/probe");
 });

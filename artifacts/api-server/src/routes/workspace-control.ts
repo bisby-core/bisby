@@ -2,13 +2,20 @@ import { Router, type IRouter, type Response } from "express";
 import {
   ModuleWorkspaceAccessBody,
   ModuleWorkspaceCreateBody,
+  ModuleWorkspaceControlQuery,
+  ModuleWorkspaceHierarchyCreateBody,
+  ModuleWorkspaceHierarchyParams,
+  ModuleWorkspaceHierarchyUpdateBody,
   ModuleWorkspaceParams,
   WorkspaceMetadataBody,
 } from "./schemas";
 import {
   createModuleWorkspace,
+  addModuleWorkspaceHierarchyNode,
   listModuleWorkspaces,
   removeModuleWorkspace,
+  removeModuleWorkspaceHierarchyNode,
+  updateModuleWorkspaceHierarchyNode,
   updateWorkspaceContentAccess,
   updateModuleWorkspaceMetadata,
 } from "../tenant-administration/workspaces";
@@ -53,14 +60,81 @@ function sendAdministrationError(
 
 router.get("/admin/workspaces", async (req, res, next) => {
   if (!requireWorkspaceControlContext(req, res)) return;
+  const query = ModuleWorkspaceControlQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "invalid_module_selection" });
+    return;
+  }
   try {
     res.json(
       await listModuleWorkspaces(
         req.tenantDatabase!,
         req.authenticatedUser!,
         req.tenantContext!.enabledModules,
+        query.data.moduleKey,
       ),
     );
+  } catch (error) {
+    if (!sendAdministrationError(error, res)) next(error);
+  }
+});
+
+router.post("/admin/workspaces/hierarchy", async (req, res, next) => {
+  if (!requireWorkspaceControlContext(req, res)) return;
+  const body = ModuleWorkspaceHierarchyCreateBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "invalid_workspace_hierarchy_payload" });
+    return;
+  }
+  try {
+    res.status(201).json(await addModuleWorkspaceHierarchyNode(
+      req.tenantDatabase!,
+      req.authenticatedUser!,
+      body.data,
+      req.tenantContext!.enabledModules,
+    ));
+  } catch (error) {
+    if (!sendAdministrationError(error, res)) next(error);
+  }
+});
+
+router.patch("/admin/workspaces/hierarchy/:nodeType/:nodeKey", async (req, res, next) => {
+  if (!requireWorkspaceControlContext(req, res)) return;
+  const params = ModuleWorkspaceHierarchyParams.safeParse(req.params);
+  const body = ModuleWorkspaceHierarchyUpdateBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "invalid_workspace_hierarchy_payload" });
+    return;
+  }
+  try {
+    res.json(await updateModuleWorkspaceHierarchyNode(
+      req.tenantDatabase!,
+      req.authenticatedUser!,
+      params.data.nodeType,
+      params.data.nodeKey,
+      body.data,
+      req.tenantContext!.enabledModules,
+    ));
+  } catch (error) {
+    if (!sendAdministrationError(error, res)) next(error);
+  }
+});
+
+router.delete("/admin/workspaces/hierarchy/:nodeType/:nodeKey", async (req, res, next) => {
+  if (!requireWorkspaceControlContext(req, res)) return;
+  const params = ModuleWorkspaceHierarchyParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "invalid_workspace_hierarchy_target" });
+    return;
+  }
+  try {
+    res.json(await removeModuleWorkspaceHierarchyNode(
+      req.tenantDatabase!,
+      req.authenticatedUser!,
+      params.data.nodeType,
+      params.data.nodeKey,
+      req.tenantContext!.enabledModules,
+    ));
   } catch (error) {
     if (!sendAdministrationError(error, res)) next(error);
   }

@@ -43,6 +43,8 @@ interface WorkspaceContentNodeRow {
 export interface WorkspaceContentNode {
   readonly id: string;
   readonly parentId: string | null;
+  readonly semanticId: string;
+  readonly parentSemanticId: string | null;
   readonly type: WorkspaceContentNodeType;
   readonly key: string;
   readonly displayName: string;
@@ -77,7 +79,7 @@ const DEFAULT_CONTENT_NODES = [
   { type: "card", key: "session-status", displayName: "Session status", parentKey: "tab:overview", sortOrder: 2 },
 ] as const;
 
-function assertModuleAdministrator(
+function assertModuleAdmin(
   actor: AuthenticatedLocalUser,
   enabledModules: readonly ModuleSchemaName[],
 ): asserts actor is AuthenticatedLocalUser & { readonly moduleKey: ModuleSchemaName } {
@@ -88,7 +90,7 @@ function assertModuleAdministrator(
   ) {
     throw new TenantAdministrationError(
       "administration_forbidden",
-      "Only an administrator of an active module can control its workspaces.",
+      "Only the module admin assigned to an active module can control Module Staff Workspaces.",
     );
   }
 }
@@ -97,6 +99,8 @@ function serializeWorkspace(
   workspace: WorkspaceRow,
   nodes: readonly WorkspaceContentNodeRow[],
 ): ManagedModuleWorkspace {
+  const workspaceNodes = nodes.filter((node) => node.workspace_id === workspace.id);
+  const nodesById = new Map(workspaceNodes.map((node) => [node.id, node]));
   return {
     id: workspace.id,
     moduleKey: workspace.module_schema,
@@ -108,8 +112,7 @@ function serializeWorkspace(
     publicVisible: workspace.public_visible,
     contactEnabled: workspace.contact_enabled,
     createdAt: new Date(workspace.created_at).toISOString(),
-    contentNodes: nodes
-      .filter((node) => node.workspace_id === workspace.id)
+    contentNodes: workspaceNodes
       .sort((left, right) => {
         const typeOrder = { page: 0, tab: 1, card: 2 };
         return typeOrder[left.node_type] - typeOrder[right.node_type] ||
@@ -119,6 +122,13 @@ function serializeWorkspace(
       .map((node) => ({
         id: node.id,
         parentId: node.parent_id,
+        semanticId: `${node.node_type}:${node.node_key}`,
+        parentSemanticId: node.parent_id
+          ? (() => {
+              const parent = nodesById.get(node.parent_id);
+              return parent ? `${parent.node_type}:${parent.node_key}` : null;
+            })()
+          : null,
         type: node.node_type,
         key: node.node_key,
         displayName: node.display_name,
@@ -176,8 +186,27 @@ export async function listModuleWorkspaces(
   database: Knex,
   actor: AuthenticatedLocalUser,
   enabledModules: readonly ModuleSchemaName[],
+  requestedModuleKey?: ModuleSchemaName,
 ): Promise<WorkspaceControlSnapshot> {
-  assertModuleAdministrator(actor, enabledModules);
+  let moduleKey: ModuleSchemaName;
+  if (actor.role === "tenant_admin") {
+    if (!requestedModuleKey || !enabledModules.includes(requestedModuleKey)) {
+      throw new TenantAdministrationError(
+        "administration_forbidden",
+        "A tenant admin must select an active module to view Module Staff Workspaces.",
+      );
+    }
+    moduleKey = requestedModuleKey;
+  } else {
+    assertModuleAdmin(actor, enabledModules);
+    if (requestedModuleKey && requestedModuleKey !== actor.moduleKey) {
+      throw new TenantAdministrationError(
+        "administration_forbidden",
+        "A module admin can only view the module to which they are assigned.",
+      );
+    }
+    moduleKey = actor.moduleKey;
+  }
   const workspaces = await database<WorkspaceRow>("core_admin.module_workspaces")
     .select(
       "id",
@@ -189,7 +218,7 @@ export async function listModuleWorkspaces(
       "workspace_type", "public_visible", "contact_enabled",
       "created_at",
     )
-    .where({ module_schema: actor.moduleKey })
+    .where({ module_schema: moduleKey })
     .orderBy([{ column: "sort_order", order: "asc" }, { column: "workspace_key", order: "asc" }]);
   const workspaceIds = workspaces.map((workspace) => workspace.id);
   const nodes = workspaceIds.length
@@ -208,7 +237,7 @@ export async function listModuleWorkspaces(
         .whereIn("workspace_id", workspaceIds)
     : [];
   return {
-    moduleKey: actor.moduleKey,
+    moduleKey,
     workspaces: workspaces.map((workspace) => serializeWorkspace(workspace, nodes)),
   };
 }
@@ -219,15 +248,16 @@ export async function createModuleWorkspace(
   displayName: string,
   enabledModules: readonly ModuleSchemaName[],
 ): Promise<ManagedModuleWorkspace> {
-  assertModuleAdministrator(actor, enabledModules);
+  assertModuleAdmin(actor, enabledModules);
   return database.transaction(async (transaction) => {
     await transaction.raw(
       "select pg_advisory_xact_lock(hashtext(?))",
       [`bisby-workspace:${actor.moduleKey}`],
     );
     const existing = await transaction<WorkspaceRow>("core_admin.module_workspaces")
-      .select("workspace_key", "sort_order")
+      .select("id", "workspace_key", "sort_order")
       .where({ module_schema: actor.moduleKey })
+      .orderBy([{ column: "sort_order", order: "asc" }, { column: "workspace_key", order: "asc" }])
       .forUpdate();
     const numbers = existing
       .map((workspace) => /^ws-(\d+)$/.exec(workspace.workspace_key)?.[1])
@@ -261,15 +291,49 @@ export async function createModuleWorkspace(
       );
     }
 
+    const sourceNodes = existing[0]
+      ? await transaction<WorkspaceContentNodeRow>("core_admin.workspace_content_nodes")
+          .select(
+            "id", "workspace_id", "parent_id", "module_schema", "node_type", "node_key",
+            "display_name", "sort_order", "access_level",
+          )
+          .where({ workspace_id: existing[0].id })
+      : [];
+    const sourceById = new Map(sourceNodes.map((node) => [node.id, node]));
+    const sourceHierarchy = sourceNodes.length
+      ? sourceNodes.map((node) => ({
+          type: node.node_type,
+          key: node.node_key,
+          displayName: node.display_name,
+          parentKey: node.parent_id
+            ? (() => {
+                const parent = sourceById.get(node.parent_id);
+                return parent ? `${parent.node_type}:${parent.node_key}` : null;
+              })()
+            : null,
+          sortOrder: node.sort_order,
+        }))
+      : DEFAULT_CONTENT_NODES;
+    const hierarchyOrder = { page: 0, tab: 1, card: 2 } as const;
     const parentIds = new Map<string, string>();
     const nodes: WorkspaceContentNodeRow[] = [];
-    for (const node of DEFAULT_CONTENT_NODES) {
+    for (const node of [...sourceHierarchy].sort(
+      (left, right) => hierarchyOrder[left.type] - hierarchyOrder[right.type] ||
+        left.sortOrder - right.sortOrder,
+    )) {
+      const parentId = node.parentKey ? parentIds.get(node.parentKey) : null;
+      if (node.parentKey && !parentId) {
+        throw new TenantAdministrationError(
+          "managed_account_conflict",
+          "The source workspace hierarchy contains an invalid parent relation.",
+        );
+      }
       const [created] = await transaction<WorkspaceContentNodeRow>(
         "core_admin.workspace_content_nodes",
       )
         .insert({
           workspace_id: workspace.id,
-          parent_id: node.parentKey ? parentIds.get(node.parentKey) ?? null : null,
+          parent_id: parentId,
           module_schema: actor.moduleKey,
           node_type: node.type,
           node_key: node.key,
@@ -307,13 +371,222 @@ export async function createModuleWorkspace(
   });
 }
 
+export interface WorkspaceHierarchyInput {
+  readonly type: WorkspaceContentNodeType;
+  readonly key: string;
+  readonly displayName: string;
+  readonly sortOrder: number;
+  readonly parentType: WorkspaceContentNodeType | null;
+  readonly parentKey: string | null;
+}
+
+function assertHierarchyParent(
+  type: WorkspaceContentNodeType,
+  parentType: WorkspaceContentNodeType | null,
+  parentKey: string | null,
+): void {
+  const expected = type === "page" ? null : type === "tab" ? "page" : "tab";
+  if (
+    parentType !== expected ||
+    (expected === null ? parentKey !== null : parentKey === null)
+  ) {
+    throw new TenantAdministrationError(
+      "invalid_workspace_hierarchy",
+      type === "page"
+        ? "A page cannot have a parent."
+        : `A ${type} must have a ${expected} parent.`,
+    );
+  }
+}
+
+async function moduleWorkspacesForHierarchy(
+  transaction: Knex.Transaction,
+  moduleKey: ModuleSchemaName,
+): Promise<readonly Pick<WorkspaceRow, "id">[]> {
+  await transaction.raw("select pg_advisory_xact_lock(hashtext(?))", [
+    `bisby-workspace:${moduleKey}`,
+  ]);
+  return transaction<WorkspaceRow>("core_admin.module_workspaces")
+    .select("id")
+    .where({ module_schema: moduleKey })
+    .forUpdate();
+}
+
+export async function addModuleWorkspaceHierarchyNode(
+  database: Knex,
+  actor: AuthenticatedLocalUser,
+  input: WorkspaceHierarchyInput,
+  enabledModules: readonly ModuleSchemaName[],
+): Promise<WorkspaceControlSnapshot> {
+  assertModuleAdmin(actor, enabledModules);
+  assertHierarchyParent(input.type, input.parentType, input.parentKey);
+  return database.transaction(async (transaction) => {
+    const workspaces = await moduleWorkspacesForHierarchy(transaction, actor.moduleKey);
+    if (!workspaces.length) {
+      throw new TenantAdministrationError(
+        "managed_account_conflict",
+        "Create a module workspace before adding hierarchy controls.",
+      );
+    }
+    for (const workspace of workspaces) {
+      const duplicate = await transaction("core_admin.workspace_content_nodes")
+        .select("id")
+        .where({
+          workspace_id: workspace.id,
+          node_type: input.type,
+          node_key: input.key,
+        })
+        .first();
+      if (duplicate) {
+        throw new TenantAdministrationError(
+          "managed_account_conflict",
+          "That semantic hierarchy key already exists.",
+        );
+      }
+      const parent = input.parentType
+        ? await transaction<WorkspaceContentNodeRow>("core_admin.workspace_content_nodes")
+            .select("id")
+            .where({
+              workspace_id: workspace.id,
+              node_type: input.parentType,
+              node_key: input.parentKey!,
+            })
+            .first()
+        : null;
+      if (input.parentType && !parent) {
+        throw new TenantAdministrationError(
+          "managed_account_not_found",
+          "The semantic parent was not found in every module workspace.",
+        );
+      }
+      await transaction("core_admin.workspace_content_nodes").insert({
+        workspace_id: workspace.id,
+        parent_id: parent?.id ?? null,
+        module_schema: actor.moduleKey,
+        node_type: input.type,
+        node_key: input.key,
+        display_name: input.displayName,
+        sort_order: input.sortOrder,
+        access_level: "active",
+      });
+    }
+    await recordWorkspaceAudit(transaction, actor, "tenant.module_workspace.hierarchy_added", {
+      moduleKey: actor.moduleKey,
+      node: input,
+    });
+    return listModuleWorkspaces(transaction, actor, enabledModules);
+  });
+}
+
+export async function updateModuleWorkspaceHierarchyNode(
+  database: Knex,
+  actor: AuthenticatedLocalUser,
+  nodeType: WorkspaceContentNodeType,
+  nodeKey: string,
+  input: Omit<WorkspaceHierarchyInput, "type">,
+  enabledModules: readonly ModuleSchemaName[],
+): Promise<WorkspaceControlSnapshot> {
+  assertModuleAdmin(actor, enabledModules);
+  assertHierarchyParent(nodeType, input.parentType, input.parentKey);
+  if (input.parentType === nodeType && input.parentKey === input.key) {
+    throw new TenantAdministrationError("invalid_workspace_hierarchy", "A hierarchy node cannot be its own parent.");
+  }
+  return database.transaction(async (transaction) => {
+    const workspaces = await moduleWorkspacesForHierarchy(transaction, actor.moduleKey);
+    for (const workspace of workspaces) {
+      const node = await transaction<WorkspaceContentNodeRow>("core_admin.workspace_content_nodes")
+        .select("id")
+        .where({ workspace_id: workspace.id, node_type: nodeType, node_key: nodeKey })
+        .forUpdate()
+        .first();
+      if (!node) {
+        throw new TenantAdministrationError(
+          "managed_account_not_found",
+          "The semantic hierarchy node was not found in every module workspace.",
+        );
+      }
+      const duplicate = input.key !== nodeKey
+        ? await transaction("core_admin.workspace_content_nodes")
+            .select("id")
+            .where({ workspace_id: workspace.id, node_type: nodeType, node_key: input.key })
+            .first()
+        : null;
+      if (duplicate) {
+        throw new TenantAdministrationError("managed_account_conflict", "That semantic hierarchy key already exists.");
+      }
+      const parent = input.parentType
+        ? await transaction<WorkspaceContentNodeRow>("core_admin.workspace_content_nodes")
+            .select("id")
+            .where({
+              workspace_id: workspace.id,
+              node_type: input.parentType,
+              node_key: input.parentKey!,
+            })
+            .first()
+        : null;
+      if (input.parentType && !parent) {
+        throw new TenantAdministrationError(
+          "managed_account_not_found",
+          "The semantic parent was not found in every module workspace.",
+        );
+      }
+      await transaction("core_admin.workspace_content_nodes")
+        .where({ id: node.id })
+        .update({
+          parent_id: parent?.id ?? null,
+          node_key: input.key,
+          display_name: input.displayName,
+          sort_order: input.sortOrder,
+          updated_at: transaction.fn.now(),
+        });
+    }
+    await recordWorkspaceAudit(transaction, actor, "tenant.module_workspace.hierarchy_updated", {
+      moduleKey: actor.moduleKey,
+      nodeType,
+      nodeKey,
+      update: input,
+    });
+    return listModuleWorkspaces(transaction, actor, enabledModules);
+  });
+}
+
+export async function removeModuleWorkspaceHierarchyNode(
+  database: Knex,
+  actor: AuthenticatedLocalUser,
+  nodeType: WorkspaceContentNodeType,
+  nodeKey: string,
+  enabledModules: readonly ModuleSchemaName[],
+): Promise<WorkspaceControlSnapshot> {
+  assertModuleAdmin(actor, enabledModules);
+  return database.transaction(async (transaction) => {
+    const workspaces = await moduleWorkspacesForHierarchy(transaction, actor.moduleKey);
+    for (const workspace of workspaces) {
+      const deleted = await transaction("core_admin.workspace_content_nodes")
+        .where({ workspace_id: workspace.id, node_type: nodeType, node_key: nodeKey })
+        .delete();
+      if (deleted !== 1) {
+        throw new TenantAdministrationError(
+          "managed_account_not_found",
+          "The semantic hierarchy node was not found in every module workspace.",
+        );
+      }
+    }
+    await recordWorkspaceAudit(transaction, actor, "tenant.module_workspace.hierarchy_removed", {
+      moduleKey: actor.moduleKey,
+      nodeType,
+      nodeKey,
+    });
+    return listModuleWorkspaces(transaction, actor, enabledModules);
+  });
+}
+
 export async function removeModuleWorkspace(
   database: Knex,
   actor: AuthenticatedLocalUser,
   workspaceKey: string,
   enabledModules: readonly ModuleSchemaName[],
 ): Promise<{ readonly status: "workspace_removed"; readonly workspaceKey: string }> {
-  assertModuleAdministrator(actor, enabledModules);
+  assertModuleAdmin(actor, enabledModules);
   return database.transaction(async (transaction) => {
     const workspace = await loadWorkspace(
       transaction,
@@ -341,7 +614,7 @@ export async function updateWorkspaceContentAccess(
   updates: readonly { readonly nodeId: string; readonly accessLevel: WorkspaceAccessLevel }[],
   enabledModules: readonly ModuleSchemaName[],
 ): Promise<ManagedModuleWorkspace> {
-  assertModuleAdministrator(actor, enabledModules);
+  assertModuleAdmin(actor, enabledModules);
   return database.transaction(async (transaction) => {
     const workspace = await loadWorkspace(
       transaction,
@@ -486,7 +759,7 @@ export async function updateModuleWorkspaceMetadata(
   database: Knex, actor: AuthenticatedLocalUser, workspaceKey: string,
   metadata: WorkspaceMetadata, enabledModules: readonly ModuleSchemaName[],
 ): Promise<ManagedModuleWorkspace> {
-  assertModuleAdministrator(actor, enabledModules);
+  assertModuleAdmin(actor, enabledModules);
   metadata = normalizedMetadata(metadata);
   return database.transaction(async (transaction) => {
     const workspace = await loadWorkspace(transaction, actor.moduleKey, workspaceKey, true);

@@ -28,15 +28,7 @@ if (!basePath) {
   );
 }
 
-const developmentPlane = process.env.VITE_BISBY_DEV_PLANE ?? 'platform';
-const developmentHosts = {
-  platform: 'bisby.pro',
-  design: 'design.bisby.pro',
-  clientalpha: 'clientalpha.bisby.pro',
-} as const;
-const developmentHost =
-  developmentHosts[developmentPlane as keyof typeof developmentHosts] ??
-  developmentHosts.platform;
+const developmentHost = 'design.bisby.pro';
 const developmentApiUrl =
   process.env.BISBY_DEV_API_URL ?? 'http://127.0.0.1:8080';
 
@@ -114,12 +106,8 @@ export default defineConfig({
       process.env.NODE_ENV !== 'production'
         ? {
             '/__bisby-dev/design/api': developmentProxy(
-              developmentHosts.design,
+              developmentHost,
               '/__bisby-dev/design',
-            ),
-            '/__bisby-dev/clientalpha/api': developmentProxy(
-              developmentHosts.clientalpha,
-              '/__bisby-dev/clientalpha',
             ),
             '/api': developmentProxy(developmentHost),
           }

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && pnpm -w run typecheck:libs"
+    "codegen": "orval --config ./orval.config.ts && node ./trim-generated.mjs && pnpm exec tsc --build ../api-client-react/tsconfig.json --clean && pnpm exec tsc --build ../api-client-react/tsconfig.json && pnpm -w run typecheck:libs"
   },
   "devDependencies": {
     "orval": "^8.23.0"

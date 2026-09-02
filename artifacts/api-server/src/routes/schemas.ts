@@ -11,6 +11,8 @@ const moduleKey = z.enum([
   "module_h",
 ]);
 const workspaceKey = z.string().regex(/^ws-[1-9][0-9]*$/);
+const tenantAdminStaffWorkspaceKey = z.string().regex(/^tasw-[1-9][0-9]*$/);
+const localWorkspaceKey = z.union([workspaceKey, tenantAdminStaffWorkspaceKey]);
 const tenantWorkspaceKey = z.string().regex(/^tws-[1-9][0-9]*$/);
 const workspaceType = z.enum(["normal", "public_information", "contact_us"]);
 const workspaceAccessLevel = z.enum([
@@ -19,7 +21,7 @@ const workspaceAccessLevel = z.enum([
   "view_only",
   "not_available",
 ]);
-const localAccountRole = z.enum(["tenant_admin", "module_admin", "module_staff", "client"]);
+const localAccountRole = z.enum(["tenant_admin", "module_admin", "module_staff", "client", "tenant_admin_staff"]);
 const tenantSubdomain = z
   .string()
   .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/)
@@ -40,7 +42,7 @@ export const LoginResponse = z.object({
   username: z.string(),
   role: localAccountRole,
   moduleKey: moduleKey.nullable(),
-  workspaceKeys: z.array(workspaceKey),
+  workspaceKeys: z.array(localWorkspaceKey),
   requiresPasswordChange: z.boolean(),
 });
 export const GetCurrentUserResponse = LoginResponse;
@@ -53,10 +55,15 @@ export const ChangePasswordResponse = z.object({
   requiresPasswordChange: z.literal(false),
 });
 export const LogoutResponse = z.object({ authenticated: z.boolean() });
+export const GetCustomerContextResponse = z.object({
+  customerName: z.string().min(1),
+  subdomain: z.string(),
+});
 export const GetRouteAccessParams = z.object({ moduleKey, workspaceKey });
 export const GetRouteAccessResponse = z.object({
   allowed: z.boolean(),
   tenantId: z.string(),
+  customerName: z.string().min(1),
   subdomain: z.string(),
   moduleKey,
   workspaceKey,
@@ -96,9 +103,9 @@ export const OwnerTenantIdParams = z.object({
   tenantId: z.string().uuid(),
 });
 
-export const OwnerTenantAdministratorParams = z.object({
+export const OwnerTenantAdminParams = z.object({
   tenantId: z.string().uuid(),
-  administratorId: z.string().uuid(),
+  tenantAdminId: z.string().uuid(),
 });
 
 export const OwnerTenantModuleParams = z.object({
@@ -110,15 +117,34 @@ export const OwnerToggleBody = z.object({
   active: z.boolean(),
 });
 
-export const OwnerTenantAdministratorResetBody = z.object({
+export const OwnerTenantAdminResetBody = z.object({
   currentUsername: z.string().trim().min(1).max(255),
   newUsername: z.string().trim().min(1).max(255),
   temporaryPassword: simplePassword,
 }).strict();
 
-export const OwnerTenantAdministratorCreateBody = z.object({
+export const OwnerTenantAdminCreateBody = z.object({
   username: z.string().trim().min(1).max(255),
   displayName: z.string().trim().min(1).max(255),
+  temporaryPassword: simplePassword,
+}).strict();
+
+const platformWorkspaceKey = z.string().regex(/^pws-[1-9][0-9]*$/);
+const platformStaffWorkspaceKeys = z.array(platformWorkspaceKey).min(1).max(250)
+  .refine((keys) => new Set(keys).size === keys.length, "Workspace assignments must be unique.");
+export const OwnerPlatformStaffParams = z.object({
+  platformStaffId: z.string().uuid(),
+});
+export const OwnerPlatformStaffCreateBody = z.object({
+  username: z.string().trim().min(1).max(255),
+  displayName: z.string().trim().min(1).max(255),
+  temporaryPassword: simplePassword,
+  workspaceKeys: platformStaffWorkspaceKeys,
+}).strict();
+export const OwnerPlatformStaffWorkspacesBody = z.object({
+  workspaceKeys: platformStaffWorkspaceKeys,
+}).strict();
+export const OwnerPlatformStaffResetBody = z.object({
   temporaryPassword: simplePassword,
 }).strict();
 
@@ -147,10 +173,51 @@ export const TenantAdminUserResetBody = z.object({
 export const TenantAdminUserStatusBody = z.object({
   active: z.boolean(),
 }).strict();
+export const TenantAdminStaffWorkspaceParams = z.object({ workspaceKey: tenantAdminStaffWorkspaceKey });
+export const TenantAdminStaffCreateBody = z.object({
+  username: z.string().trim().min(1).max(255),
+  displayName: z.string().trim().min(1).max(255),
+  temporaryPassword: simplePassword,
+  workspaceKeys: z.array(tenantAdminStaffWorkspaceKey).min(1).max(250)
+    .refine((keys) => new Set(keys).size === keys.length, "Workspace assignments must be unique."),
+}).strict();
+export const TenantAdminStaffAccessBody = z.object({
+  workspaceKeys: z.array(tenantAdminStaffWorkspaceKey).min(1),
+}).strict();
+export const TenantAdminStaffRouteAccessParams = z.object({ workspaceKey: tenantAdminStaffWorkspaceKey });
 
 export const ModuleWorkspaceParams = z.object({
   workspaceKey,
 });
+
+export const ModuleWorkspaceControlQuery = z.object({
+  moduleKey: moduleKey.optional(),
+}).strict();
+
+const workspaceContentNodeType = z.enum(["page", "tab", "card"]);
+const workspaceContentNodeKey = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,126})$/);
+
+export const ModuleWorkspaceHierarchyParams = z.object({
+  nodeType: workspaceContentNodeType,
+  nodeKey: workspaceContentNodeKey,
+});
+
+export const ModuleWorkspaceHierarchyCreateBody = z.object({
+  type: workspaceContentNodeType,
+  key: workspaceContentNodeKey,
+  displayName: z.string().trim().min(1).max(255),
+  sortOrder: z.number().int(),
+  parentType: workspaceContentNodeType.nullable(),
+  parentKey: workspaceContentNodeKey.nullable(),
+}).strict();
+
+export const ModuleWorkspaceHierarchyUpdateBody = z.object({
+  key: workspaceContentNodeKey,
+  displayName: z.string().trim().min(1).max(255),
+  sortOrder: z.number().int(),
+  parentType: workspaceContentNodeType.nullable(),
+  parentKey: workspaceContentNodeKey.nullable(),
+}).strict();
 
 export const ModuleWorkspaceCreateBody = z.object({
   displayName: z.string().trim().min(1).max(255),
@@ -172,5 +239,7 @@ export const WorkspaceMetadataBody = z.object({
   publicVisible: z.boolean(),
   contactEnabled: z.boolean(),
 }).strict();
+export const TenantAdminStaffWorkspaceCreateBody = WorkspaceMetadataBody;
+export const TenantAdminStaffWorkspaceUpdateBody = WorkspaceMetadataBody;
 export const OwnerWorkspaceParams = z.object({ workspaceKey: z.string().regex(/^pws-[1-9][0-9]*$/) });
 export const WorkspaceAccessBody = z.object({ controls: z.array(z.object({ nodeId: z.string().uuid(), accessLevel: workspaceAccessLevel }).strict()).min(1).max(250) }).strict();

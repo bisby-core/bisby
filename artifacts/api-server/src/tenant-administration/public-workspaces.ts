@@ -6,7 +6,7 @@ import { TenantAdministrationError } from "./accounts";
 export type WorkspaceType = "normal" | "public_information" | "contact_us";
 export type WorkspaceAccessLevel = "active" | "sign_only" | "view_only" | "not_available";
 export interface WorkspaceMetadata { readonly displayName: string; readonly isActive: boolean; readonly workspaceType: WorkspaceType; readonly publicVisible: boolean; readonly contactEnabled: boolean; }
-export interface WorkspaceNode { readonly id: string; readonly parentId: string | null; readonly type: "page" | "tab" | "card"; readonly key: string; readonly displayName: string; readonly sortOrder: number; readonly accessLevel: WorkspaceAccessLevel; }
+export interface WorkspaceNode { readonly id: string; readonly parentId: string | null; readonly semanticId: string; readonly parentSemanticId: string | null; readonly type: "page" | "tab" | "card"; readonly key: string; readonly displayName: string; readonly sortOrder: number; readonly accessLevel: WorkspaceAccessLevel; }
 export interface ManagedRegistryWorkspace extends WorkspaceMetadata { readonly scope: "tenant" | "platform"; readonly workspaceKey: string; readonly contentNodes: readonly WorkspaceNode[]; }
 export interface PublicWorkspace extends WorkspaceMetadata { readonly scope: "tenant" | "module" | "platform"; readonly moduleKey: ModuleSchemaName | null; readonly workspaceKey: string; }
 interface Row { id: string; workspace_key: string; display_name: string; workspace_type: WorkspaceType; is_active: boolean; public_visible: boolean; contact_enabled: boolean; sort_order: number; updated_at?: Date | string; module_schema?: ModuleSchemaName; }
@@ -23,15 +23,15 @@ export function publicModuleIsEnabled(
   return moduleSchema !== undefined && enabledModules.includes(moduleSchema);
 }
 function publicRow(row: Row, scope: PublicWorkspace["scope"]): PublicWorkspace { return { scope, moduleKey: row.module_schema ?? null, workspaceKey: row.workspace_key, displayName: row.display_name, workspaceType: row.workspace_type, isActive: row.is_active, publicVisible: row.public_visible, contactEnabled: row.contact_enabled }; }
-function node(row: NodeRow): WorkspaceNode { return { id: row.id, parentId: row.parent_id, type: row.node_type, key: row.node_key, displayName: row.display_name, sortOrder: row.sort_order, accessLevel: row.access_level }; }
-function tenantAdmin(actor: AuthenticatedLocalUser): void { if (actor.role !== "tenant_admin") throw new TenantAdministrationError("administration_forbidden", "Only tenant administrators can manage tenant workspaces."); }
+function nodes(rows: readonly NodeRow[]): WorkspaceNode[] { const byId = new Map(rows.map(row => [row.id, row])); return rows.map(row => ({ id: row.id, parentId: row.parent_id, semanticId: `${row.node_type}:${row.node_key}`, parentSemanticId: row.parent_id ? (() => { const parent = byId.get(row.parent_id); return parent ? `${parent.node_type}:${parent.node_key}` : null; })() : null, type: row.node_type, key: row.node_key, displayName: row.display_name, sortOrder: row.sort_order, accessLevel: row.access_level })); }
+function tenantAdmin(actor: AuthenticatedLocalUser): void { if (actor.role !== "tenant_admin") throw new TenantAdministrationError("administration_forbidden", "Only tenant admin can manage Public Entries."); }
 async function insertNodes(tx: Knex.Transaction, id: string): Promise<void> {
   const [page] = await tx("core_admin.tenant_workspace_content_nodes").insert({ workspace_id: id, node_type: "page", node_key: "workspace", display_name: "Workspace", sort_order: 0, access_level: "active" }).returning(["id"]);
   const [tab] = await tx("core_admin.tenant_workspace_content_nodes").insert({ workspace_id: id, parent_id: page.id, node_type: "tab", node_key: "overview", display_name: "Overview", sort_order: 0, access_level: "active" }).returning(["id"]);
   await tx("core_admin.tenant_workspace_content_nodes").insert({ workspace_id: id, parent_id: tab.id, node_type: "card", node_key: "content", display_name: "Content", sort_order: 0, access_level: "active" });
 }
 async function managed(db: Knex, row: Row): Promise<ManagedRegistryWorkspace> {
-  const rows = await db<NodeRow>("core_admin.tenant_workspace_content_nodes").select("id", "parent_id", "node_type", "node_key", "display_name", "sort_order", "access_level").where({ workspace_id: row.id }).orderBy("sort_order");
+  const rows = await db<NodeRow>("core_admin.tenant_workspace_content_nodes").select("id", "workspace_id", "parent_id", "node_type", "node_key", "display_name", "sort_order", "access_level").where({ workspace_id: row.id }).orderBy("sort_order");
   return {
     scope: "tenant",
     workspaceKey: row.workspace_key,
@@ -40,7 +40,7 @@ async function managed(db: Knex, row: Row): Promise<ManagedRegistryWorkspace> {
     isActive: row.is_active,
     publicVisible: row.public_visible,
     contactEnabled: row.contact_enabled,
-    contentNodes: rows.map(node),
+    contentNodes: nodes(rows),
   };
 }
 export async function listTenantWorkspaces(db: Knex, actor: AuthenticatedLocalUser): Promise<{ workspaces: readonly ManagedRegistryWorkspace[] }> { tenantAdmin(actor); return { workspaces: await Promise.all((await db<Row>("core_admin.tenant_workspaces").select("*").orderBy("sort_order")).map(row => managed(db, row))) }; }

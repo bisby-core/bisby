@@ -6,11 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ModuleKey } from './moduleKey';
-import type { TenantAdministrationCurrentUserRole } from './tenantAdministrationCurrentUserRole';
+import type { TenantAdminCurrentUserRole } from './tenantAdminCurrentUserRole';
 
-export interface TenantAdministrationCurrentUser {
+export interface TenantAdminCurrentUser {
   accountId: string;
   username: string;
-  role: TenantAdministrationCurrentUserRole;
+  role: TenantAdminCurrentUserRole;
   moduleKey: ModuleKey | null;
 }

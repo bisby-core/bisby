@@ -11,6 +11,7 @@ import type { WorkspaceKey } from './workspaceKey';
 export interface RouteAccess {
   allowed: boolean;
   tenantId: string;
+  customerName: string;
   subdomain: string;
   moduleKey: ModuleKey;
   workspaceKey: WorkspaceKey;

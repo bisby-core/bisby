@@ -11,6 +11,9 @@ import type { WorkspaceContentNodeType } from './workspaceContentNodeType';
 export interface WorkspaceContentNode {
   id: string;
   parentId: string | null;
+  /** @pattern ^(page|tab|card):[a-z0-9](?:[a-z0-9-]{0,126})$ */
+  semanticId: string;
+  parentSemanticId: string | null;
   type: WorkspaceContentNodeType;
   key: string;
   displayName: string;

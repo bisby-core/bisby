@@ -70,6 +70,7 @@ router.get("/access/:moduleKey/:workspaceKey", async (req, res, next) => {
     const response = GetRouteAccessResponse.parse({
       allowed: true,
       tenantId: req.tenantContext.tenantId,
+      customerName: req.tenantContext.customerName,
       subdomain: req.tenantContext.subdomain,
       moduleKey,
       workspaceKey,

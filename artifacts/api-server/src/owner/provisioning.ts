@@ -161,7 +161,7 @@ async function migrateAndSeedTenant(
         .where({ username: input.adminUsername })
         .first<{ id: string }>();
       if (!account) {
-        throw new Error("The initial administrator account could not be created.");
+        throw new Error("The initial tenant admin account could not be created.");
       }
 
     });

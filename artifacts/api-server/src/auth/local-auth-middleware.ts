@@ -143,11 +143,12 @@ export function createLocalAuthMiddleware(): RequestHandler {
         username: account.username,
         role,
         moduleKey:
-          role === "tenant_admin"
+          role === "tenant_admin" || role === "tenant_admin_staff"
             ? null
             : assignments.moduleKey,
-        workspaceKeys: assignments.workspaceKeys,
+        workspaceKeys: role === "tenant_admin_staff" ? assignments.tenantAdminStaffWorkspaceKeys : assignments.workspaceKeys,
         workspaceAssignments: assignments.workspaceAssignments,
+        tenantAdminStaffWorkspaceKeys: assignments.tenantAdminStaffWorkspaceKeys,
         requiresPasswordChange: account.must_change_password,
       };
       next();

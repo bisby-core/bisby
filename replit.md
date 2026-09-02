@@ -55,6 +55,14 @@ Core infrastructure skeleton for a database-per-tenant SaaS application.
 
 BisBy provides tenant-isolated SaaS modules behind wildcard subdomains such as `tenant.bisby.pro`.
 
+## Frozen production baseline
+
+- The verified production baseline is Git commit `3b65771519adf8975dbca260507a34f6bed7ec9a`.
+- Treat the platform control plane, tenant routing, authentication, database-per-tenant architecture, administration surfaces, workspace hierarchy, and public workspace behavior as frozen.
+- New development must remain inside Modules A–H and must be performed and validated in development only.
+- Do not modify frozen platform or tenant infrastructure unless the user explicitly expands the scope.
+- Do not push, deploy, migrate production data, or otherwise change production unless the user explicitly instructs it for that occasion.
+
 ## User preferences
 
 - Preserve the database-per-tenant isolation model; do not replace it with shared-database tenant filtering.

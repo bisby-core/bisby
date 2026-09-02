@@ -1,5 +1,5 @@
 - [BisBy route matching](routing-ui-quirks.md) — capture workspace keys as complete segments, then normalize the `ws-` prefix.
-- [Migration entrypoint boundaries](migration-entrypoint-boundaries.md) — reusable migration helpers must not execute DDL when imported by provisioning or tests.
+- [Migration entrypoint boundaries](migration-entrypoint-boundaries.md) — keep imports side-effect free and roll schema changes across every registered physical tenant database.
 - [GitHub push authentication](github-push-auth.md) — use a temporary secret-expanded remote for manual pushes, verify the ref, then restore the credential-free origin URL.
 - [Supabase physical database provisioning](supabase-physical-database-provisioning.md) — create databases through direct node-pg statements; keep `search_path` separate from plain database names.
 - [Owner credential reset reconciliation](owner-password-reset-reconciliation.md) — resolve audit writes as recorded, absent, or unknown before compensating tenant credential changes.
@@ -7,3 +7,7 @@
 - [Workspace content inheritance](workspace-content-inheritance.md) — page and tab restrictions constrain descendant cards; child controls cannot broaden a parent boundary.
 - [Public workspace placement](public-workspace-placement.md) — tenant portals show tenant entries only; module public entries belong exclusively on their own module surface.
 - [Managed PostgreSQL TLS](managed-postgres-tls.md) — the current self-signed managed pooler requires documented unverified TLS unless a trusted project CA is supplied.
+- [Vercel API release validation](vercel-api-release-validation.md) — prebundle Knex APIs and verify JSON responses; SPA fallbacks can hide broken rewrites behind HTTP 200.
+- [Module admin credential authority](module-admin-credential-authority.md) — tenant admins manage module admins through sign-in credentials, never an active/inactive account switch.
+- [Staff workspace assignment ownership](module-staff-role-assignments.md) — staff assignments share one pattern; authority follows platform, tenant, and module scope.
+- [Explicit admin-control naming](admin-control-naming-and-navigation.md) — name the exact tenant/module scope and hide admin navigation from every unauthorized role.

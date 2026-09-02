@@ -17,6 +17,7 @@ import authRouter from "./routes/auth";
 import ownerRouter from "./routes/owner";
 import { createLocalAuthMiddleware } from "./auth/local-auth-middleware";
 import { createOwnerAuthMiddleware } from "./owner/auth";
+import platformStaffRouter from "./routes/platform-staff";
 
 const app: Express = express();
 const masterDatabase = createMasterDatabase();
@@ -53,6 +54,7 @@ app.set("trust proxy", 1);
 app.use("/api", healthRouter);
 app.use("/api", createOwnerAuthMiddleware(rootDomain));
 app.use("/api/owner", ownerRouter(masterDatabase, rootDomain));
+app.use("/api/platform-staff", platformStaffRouter(masterDatabase, rootDomain));
 app.use(
   "/api",
   createDatabaseRouter({

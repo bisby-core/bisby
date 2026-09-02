@@ -14,4 +14,5 @@ export const AuthenticatedLocalUserRole = {
   module_admin: 'module_admin',
   module_staff: 'module_staff',
   client: 'client',
+  tenant_admin_staff: 'tenant_admin_staff',
 } as const;

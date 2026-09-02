@@ -24,7 +24,7 @@ export interface ManagedTenantAccountCreateRequest {
   moduleKey: ModuleKey;
   workspaceKeys: WorkspaceKey[];
   /**
-     * @minLength 12
+     * @minLength 8
      * @maxLength 255
      */
   temporaryPassword: string;

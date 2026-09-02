@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ChangePasswordBody,
-  OwnerTenantAdministratorCreateBody,
-  OwnerTenantAdministratorParams,
+  OwnerTenantAdminCreateBody,
+  OwnerTenantAdminParams,
   OwnerTenantIdParams,
   OwnerTenantModuleParams,
-  OwnerTenantAdministratorResetBody,
+  OwnerTenantAdminResetBody,
   OwnerToggleBody,
   ProvisionTenantBody,
+  OwnerPlatformStaffCreateBody,
+  OwnerPlatformStaffParams,
+  OwnerPlatformStaffResetBody,
+  OwnerPlatformStaffWorkspacesBody,
 } from "../routes/schemas";
 import { isRootHost } from "./auth";
 import { resolveSsl } from "../db/knex";
@@ -16,6 +20,7 @@ import {
   createOwnerSessionToken,
   verifyOwnerSessionToken,
 } from "./session";
+import { PlatformWorkspaceHierarchyError } from "./workspaces";
 
 const SECRET = "owner-session-unit-test-secret";
 
@@ -110,9 +115,9 @@ test("validates owner lifecycle mutation inputs", () => {
   assert.equal(OwnerTenantIdParams.safeParse({ tenantId: "not-a-uuid" }).success, false);
 });
 
-test("validates tenant administrator credential reset input", () => {
+test("validates tenant admin credential reset input", () => {
   assert.equal(
-    OwnerTenantAdministratorResetBody.safeParse({
+    OwnerTenantAdminResetBody.safeParse({
       currentUsername: "admin",
       newUsername: "tenant-owner",
       temporaryPassword: "temporarypassword",
@@ -120,7 +125,7 @@ test("validates tenant administrator credential reset input", () => {
     true,
   );
   assert.equal(
-    OwnerTenantAdministratorResetBody.safeParse({
+    OwnerTenantAdminResetBody.safeParse({
       currentUsername: "admin",
       newUsername: "tenant-owner",
       temporaryPassword: "short",
@@ -128,7 +133,7 @@ test("validates tenant administrator credential reset input", () => {
     false,
   );
   assert.equal(
-    OwnerTenantAdministratorResetBody.safeParse({
+    OwnerTenantAdminResetBody.safeParse({
       currentUsername: "admin",
       newUsername: "tenant-owner",
       temporaryPassword: "temporarypassword",
@@ -138,17 +143,17 @@ test("validates tenant administrator credential reset input", () => {
   );
 });
 
-test("validates tenant administrator creation input", () => {
+test("validates tenant admin creation input", () => {
   assert.equal(
-    OwnerTenantAdministratorCreateBody.safeParse({
+    OwnerTenantAdminCreateBody.safeParse({
       username: "ops-admin",
-      displayName: "Operations Administrator",
+      displayName: "Operations Tenant Admin",
       temporaryPassword: "temporarypassword",
     }).success,
     true,
   );
   assert.equal(
-    OwnerTenantAdministratorCreateBody.safeParse({
+    OwnerTenantAdminCreateBody.safeParse({
       username: "ops-admin",
       displayName: "",
       temporaryPassword: "short",
@@ -156,9 +161,9 @@ test("validates tenant administrator creation input", () => {
     false,
   );
   assert.equal(
-    OwnerTenantAdministratorCreateBody.safeParse({
+    OwnerTenantAdminCreateBody.safeParse({
       username: "ops-admin",
-      displayName: "Operations Administrator",
+      displayName: "Operations Tenant Admin",
       temporaryPassword: "temporarypassword",
       accountType: "client",
     }).success,
@@ -197,19 +202,62 @@ test("accepts any password with at least eight characters", () => {
   );
 });
 
-test("validates tenant administrator status route identifiers", () => {
+test("validates tenant admin status route identifiers", () => {
   assert.equal(
-    OwnerTenantAdministratorParams.safeParse({
+    OwnerTenantAdminParams.safeParse({
       tenantId: "11111111-1111-4111-8111-111111111111",
-      administratorId: "22222222-2222-4222-8222-222222222222",
+      tenantAdminId: "22222222-2222-4222-8222-222222222222",
     }).success,
     true,
   );
   assert.equal(
-    OwnerTenantAdministratorParams.safeParse({
+    OwnerTenantAdminParams.safeParse({
       tenantId: "design",
-      administratorId: "admin",
+      tenantAdminId: "admin",
     }).success,
     false,
   );
+});
+
+test("validates platform staff management inputs", () => {
+  const platformStaffId = "22222222-2222-4222-8222-222222222222";
+  assert.equal(OwnerPlatformStaffParams.safeParse({ platformStaffId }).success, true);
+  assert.equal(OwnerPlatformStaffParams.safeParse({ platformStaffId: "staff" }).success, false);
+  assert.equal(OwnerPlatformStaffCreateBody.safeParse({
+    username: "platform-operator",
+    displayName: "Platform Operator",
+    temporaryPassword: "temporarypassword",
+    workspaceKeys: ["pws-1"],
+  }).success, true);
+  assert.equal(OwnerPlatformStaffCreateBody.safeParse({
+    username: "platform-operator",
+    displayName: "Platform Operator",
+    temporaryPassword: "short",
+    workspaceKeys: [],
+  }).success, false);
+  assert.equal(OwnerPlatformStaffWorkspacesBody.safeParse({
+    workspaceKeys: ["pws-1", "pws-1"],
+  }).success, false);
+  assert.equal(OwnerPlatformStaffResetBody.safeParse({
+    temporaryPassword: "temporarypassword",
+    passwordHash: "not-accepted",
+  }).success, false);
+});
+
+test("identifies expected platform workspace hierarchy failures", () => {
+  const invalidParent = new PlatformWorkspaceHierarchyError(
+    "invalid_platform_workspace_hierarchy_parent",
+    "A tab must have a page parent.",
+  );
+  const duplicateKey = new PlatformWorkspaceHierarchyError(
+    "platform_workspace_hierarchy_key_conflict",
+    "That semantic hierarchy key already exists.",
+  );
+  const missingNode = new PlatformWorkspaceHierarchyError(
+    "platform_workspace_hierarchy_node_not_found",
+    "The semantic hierarchy node was not found.",
+  );
+  assert.equal(invalidParent.code, "invalid_platform_workspace_hierarchy_parent");
+  assert.equal(duplicateKey.code, "platform_workspace_hierarchy_key_conflict");
+  assert.equal(missingNode.code, "platform_workspace_hierarchy_node_not_found");
 });

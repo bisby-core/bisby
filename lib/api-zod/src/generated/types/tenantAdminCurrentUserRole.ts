@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type TenantAdministrationCurrentUserRole = typeof TenantAdministrationCurrentUserRole[keyof typeof TenantAdministrationCurrentUserRole];
+export type TenantAdminCurrentUserRole = typeof TenantAdminCurrentUserRole[keyof typeof TenantAdminCurrentUserRole];
 
 
-export const TenantAdministrationCurrentUserRole = {
+export const TenantAdminCurrentUserRole = {
   tenant_admin: 'tenant_admin',
   module_admin: 'module_admin',
 } as const;
