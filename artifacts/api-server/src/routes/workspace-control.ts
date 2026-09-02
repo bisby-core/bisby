@@ -60,7 +60,11 @@ function sendAdministrationError(
 
 router.get("/admin/workspaces", async (req, res, next) => {
   if (!requireWorkspaceControlContext(req, res)) return;
-  const query = ModuleWorkspaceControlQuery.safeParse(req.query);
+  // Vercel's catch-all API function may add internal route keys to req.query.
+  // Only moduleKey is part of this public route contract.
+  const query = ModuleWorkspaceControlQuery.safeParse({
+    moduleKey: req.query["moduleKey"],
+  });
   if (!query.success) {
     res.status(400).json({ error: "invalid_module_selection" });
     return;
