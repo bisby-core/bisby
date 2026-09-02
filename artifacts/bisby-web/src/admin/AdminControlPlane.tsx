@@ -205,7 +205,7 @@ function AdminControlPlaneContent({ title, moduleLetter }: { title: string; modu
 
   return (
     <RouteFrame
-      eyebrow="BisBy / admin"
+      eyebrow={`${data.customerName} / BisBy / admin`}
       title={pageTitle}
     >
       <div className="mt-12 flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">

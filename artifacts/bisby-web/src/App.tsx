@@ -983,7 +983,18 @@ function LocalAdminHome({ moduleLetter }: { moduleLetter?: string }) {
     <div className="bisby-noise min-h-[100dvh] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] md:grid md:grid-cols-[232px_1fr]">
       <aside className="border-b border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] px-5 py-6 md:min-h-[100dvh] md:border-b-0 md:border-r">
         <BrandMark />
-        <h1 className="mt-10 text-2xl font-semibold tracking-[-0.035em] text-[hsl(var(--sidebar-foreground))]">{homeTitle}</h1>
+        {normalizedLetter ? (
+          <div className="mt-10">
+            <p className="text-xl font-semibold tracking-[-0.035em] text-[hsl(var(--sidebar-foreground))]">
+              {customerName}
+            </p>
+            <h1 className="mt-1 text-base font-medium tracking-[-0.02em] text-[hsl(var(--sidebar-foreground)/.76)]">
+              {homeTitle}
+            </h1>
+          </div>
+        ) : (
+          <h1 className="mt-10 text-2xl font-semibold tracking-[-0.035em] text-[hsl(var(--sidebar-foreground))]">{homeTitle}</h1>
+        )}
         <nav className="mt-8" aria-label={homeTitle}>
           <Link
             href={`${homeHref}/dashboard`}
@@ -1001,6 +1012,11 @@ function LocalAdminHome({ moduleLetter }: { moduleLetter?: string }) {
         </Link>
       </aside>
       <main className="bisby-grid min-h-[100dvh] px-5 py-10 md:px-12 md:py-14">
+        {normalizedLetter ? (
+          <p className="mb-2 text-base font-medium tracking-[-0.015em] text-[hsl(var(--muted-foreground))]" data-testid="text-module-tenant-name">
+            {customerName}
+          </p>
+        ) : null}
         <h2 className="text-4xl font-semibold tracking-[-0.045em] md:text-6xl" data-testid={normalizedLetter ? `title-module-${normalizedLetter}-dashboard` : 'title-tenant-dashboard'}>
           {dashboardTitle}
         </h2>
@@ -1022,6 +1038,7 @@ function WorkspaceRoute() {
 }
 
 function DestinationRoute({ moduleLetter, workspaceNumber, isDashboard = false }: { moduleLetter: ModuleLetter; workspaceNumber: string; isDashboard?: boolean }) {
+  const customerName = useCustomerName() ?? 'Customer';
   const moduleKey = moduleKeys[moduleLetter];
   const workspaceKey = `ws-${workspaceNumber}` as WorkspaceKey;
   const access = useGetRouteAccess(moduleKey, workspaceKey, {
@@ -1056,7 +1073,7 @@ function DestinationRoute({ moduleLetter, workspaceNumber, isDashboard = false }
 
   if (currentUser.data?.role === 'tenant_admin_staff') {
     return (
-      <RouteFrame eyebrow={`BisBy / module ${moduleLetter.toUpperCase()} / denied`} title="Destination not assigned">
+      <RouteFrame eyebrow={`${customerName} / module ${moduleLetter.toUpperCase()} / denied`} title="Destination not assigned">
         <AccessError
           status={403}
           moduleLetter={moduleLetter}
@@ -1067,7 +1084,7 @@ function DestinationRoute({ moduleLetter, workspaceNumber, isDashboard = false }
   }
 
   return (
-    <RouteFrame eyebrow={`BisBy / module ${moduleLetter.toUpperCase()} / ${workspaceKey}`} title={title}>
+    <RouteFrame eyebrow={`${customerName} / module ${moduleLetter.toUpperCase()} / ${workspaceKey}`} title={title}>
       {!currentUser.isLoading && currentUser.data ? (
         <ModuleNavigation
           currentUser={currentUser.data}
